@@ -1,0 +1,314 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Ligne du temps de l'ostéopathie</title>
+<style>
+/* Mise en page : une colonne centrée, trois onglets (un par CM), une liste verticale de cartes à ranger de la plus ancienne (haut) à la plus récente (bas). */
+:root{
+  --bg:#f4ece0; --surface:#fffaf2; --ink:#3a2a1f; --muted:#7a6656; --line:#dccbb6;
+  --copper:#b0652a; --copper-ink:#ffffff; --brown:#5a3a24;
+  --ok:#2e7d4f; --ok-bg:#e3f1e8; --bad:#b3392d; --bad-bg:#f8e4e0;
+  --font:Arial,Helvetica,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#201813; --surface:#2d221a; --ink:#f0e4d3; --muted:#b9a58f; --line:#4a3a2d;
+  --copper:#e0955a; --copper-ink:#2a1a0e; --brown:#e8c9a8;
+  --ok:#6fcf97; --ok-bg:#203428; --bad:#f08c80; --bad-bg:#3d2320; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#201813; --surface:#2d221a; --ink:#f0e4d3; --muted:#b9a58f; --line:#4a3a2d;
+  --copper:#e0955a; --copper-ink:#2a1a0e; --brown:#e8c9a8;
+  --ok:#6fcf97; --ok-bg:#203428; --bad:#f08c80; --bad-bg:#3d2320; color-scheme:dark}
+
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.45;padding-inline:16px;padding-block:24px 48px}
+.wrap{max-width:780px;margin-inline:auto;display:flex;flex-direction:column;gap:20px}
+.eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--copper);font-weight:700}
+h1{margin:4px 0 0;font-size:clamp(1.7rem,4.5vw,2.4rem);line-height:1.1;color:var(--brown);text-wrap:balance}
+.lead{margin:8px 0 0;color:var(--muted);max-width:62ch}
+
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.tab{font:inherit;font-weight:700;font-size:14px;padding:10px 14px;border:2px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;cursor:pointer;text-align:left}
+.tab small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.tab[aria-selected="true"]{border-color:var(--copper);background:var(--copper);color:var(--copper-ink)}
+.tab[aria-selected="true"] small{color:var(--copper-ink);opacity:.85}
+.tab:focus-visible,.btn:focus-visible,.mv:focus-visible{outline:3px solid var(--copper);outline-offset:2px}
+
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.panel-head p{margin:0;color:var(--muted)}
+.ends{display:flex;justify-content:space-between;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700;padding-inline:4px}
+
+ol.line{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;position:relative}
+.card{display:grid;grid-template-columns:56px 1fr auto;align-items:center;gap:12px;background:var(--surface);border:2px solid var(--line);border-radius:6px;padding:10px 12px;cursor:grab;touch-action:manipulation}
+.card.dragging{opacity:.45;border-style:dashed}
+.card.ok{border-color:var(--ok);background:var(--ok-bg)}
+.card.bad{border-color:var(--bad);background:var(--bad-bg)}
+.pos{font-weight:700;color:var(--copper);font-size:20px;text-align:center;font-variant-numeric:tabular-nums;border-right:2px solid var(--line);padding-right:12px;align-self:stretch;display:flex;align-items:center;justify-content:center}
+.card.revealed{cursor:default}
+.card.revealed .pos{font-size:17px}
+.txt{min-width:0}
+.txt b{font-weight:700}
+.detail{display:block;margin-top:4px;color:var(--muted);font-size:14px}
+.mark{font-weight:700;font-size:13px;margin-left:6px}
+.card.ok .mark{color:var(--ok)} .card.bad .mark{color:var(--bad)}
+.moves{display:flex;flex-direction:column;gap:4px}
+.mv{font:inherit;width:34px;height:26px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:4px;cursor:pointer;line-height:1}
+.mv:hover{border-color:var(--copper)}
+.mv:disabled{opacity:.35;cursor:default}
+/* Poignée de glisser (tactile) : touch-action:none empêche la page de défiler pendant le glissement. */
+.moves{flex-direction:row;align-items:stretch;gap:6px}
+.arrows{display:flex;flex-direction:column;gap:4px}
+.grip{display:none;width:34px;border-radius:4px;border:1px solid var(--line);background:var(--bg);color:var(--muted);align-items:center;justify-content:center;font-size:20px;line-height:1;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+.card.dragging.touch{opacity:1;border-style:solid;border-color:var(--copper);box-shadow:0 6px 18px rgba(0,0,0,.25);position:relative;z-index:2}
+@media (pointer:coarse){
+  .grip{display:flex}
+  .mv{width:44px;height:40px;font-size:16px}
+  .card{cursor:default}
+}
+
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{font:inherit;font-weight:700;padding:11px 18px;border-radius:6px;border:2px solid var(--copper);background:var(--copper);color:var(--copper-ink);cursor:pointer}
+.btn.alt{background:transparent;color:var(--copper)}
+.btn:disabled{opacity:.4;cursor:default}
+.msg{min-height:1.5em;font-weight:700;color:var(--brown)}
+.hint{color:var(--muted);font-size:14px;margin:0}
+@media (max-width:480px){.card{grid-template-columns:32px 1fr auto;gap:8px;padding:10px 8px}.pos{padding-right:6px;font-size:17px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">UE 4.1 · TD Histoire de la profession</div>
+    <h1>La ligne du temps de l'ostéopathie</h1>
+    <p class="lead">Choisis un cours, puis range les cartes de la plus ancienne (en haut) à la plus récente (en bas). Glisse-les (à la souris, ou avec la poignée ⠿ sur téléphone) ou utilise les flèches. Clique sur « Vérifier » quand tu es prêt.</p>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="Cours magistraux" id="tabs"></div>
+
+  <section aria-labelledby="line-title">
+    <div class="panel-head">
+      <p id="line-intro"></p>
+    </div>
+  </section>
+
+  <div class="ends"><span>↑ Le plus ancien</span><span id="count"></span></div>
+  <ol class="line" id="list" aria-label="Cartes à ordonner"></ol>
+  <div class="ends"><span>↓ Le plus récent</span><span></span></div>
+
+  <div class="bar">
+    <button class="btn" id="check" type="button">Vérifier</button>
+    <button class="btn alt" id="reveal" type="button">Voir la correction</button>
+    <button class="btn alt" id="again" type="button">Mélanger et recommencer</button>
+  </div>
+  <div class="msg" id="msg" role="status" aria-live="polite"></div>
+  <p class="hint">Plusieurs événements de la même année peuvent être rangés dans n'importe quel ordre.</p>
+</div>
+
+<script>
+/* ---------------------------------------------------------------
+   DONNÉES. Modifiables : y = année (sert au tri), label = date affichée
+   à la correction, t = texte de la carte (sans la date), d = précision
+   affichée à la correction.
+   CM2 et CM3 : tirés du polycopié. CM1 : à relire contre ton polycopié.
+---------------------------------------------------------------- */
+const LINES=[
+{id:'cm1',tab:'CM1',sub:'Période américaine',
+ intro:'Cours magistral 1 : Still et les débuts de l\'ostéopathie aux États-Unis.',
+ events:[
+  {y:1828,t:'Naissance d\'Andrew Taylor Still à Jonesville, en Virginie.',d:'Le 6 août 1828 ; son père est pasteur méthodiste.'},
+  {y:1861,t:'Début de la guerre de Sécession : Still est médecin dans l\'armée de l\'Union.',d:'Le camp du Nord, anti-esclavagiste.'},
+  {y:1874,t:'Still est considéré comme fondateur de l\'ostéopathie, à Kirksville (Missouri).',d:'Il quitte Macon pour Kirksville après avoir été accusé d\'être lié au démon.'},
+  {y:1892,t:'Still fonde l\'American School of Osteopathy (ASO) à Kirksville.',d:'La première école d\'ostéopathie.'},
+  {y:1896,t:'Fondation du Pacific College of Osteopathy (Anaheim) et du Northern Institute of Osteopathy (Minneapolis).',d:'Les écoles se multiplient : l\'offre de formation est très mouvante.'},
+  {y:1898,t:'Fondation du Still College of Osteopathy (Des Moines) et d\'un collège à Philadelphie.',d:'Même année : l\'ordre entre les deux est libre.'},
+  {y:1900,t:'Les frères Littlejohn fondent un collège d\'ostéopathie à Chicago.',d:'Il deviendra le Littlejohn College of Osteopathy en 1909.'},
+  {y:1905,t:'Décision de la Cour suprême américaine sur la vaccination obligatoire.',d:'Elle statue sur son caractère constitutionnel.'},
+  {y:1910,t:'Rapport Flexner : audit des écoles de médecine américaines et canadiennes.',d:'Il préconise de fermer 117 des 148 écoles de médecine.'},
+  {y:1914,t:'Fusion de deux écoles de Californie : naissance du COPS.',d:'College of Osteopathic Physicians & Surgeons.'},
+  {y:1917,t:'Mort d\'AT Still ; Littlejohn fonde la British School of Osteopathy à Londres.',d:'Même année : un amendement californien donne aux DO les mêmes droits d\'exercer que les MD (examen oral).'},
+  {y:1928,t:'Les études de DO sont à nouveau séparées de celles de MD en Californie.',d:'Cette séparation dure jusqu\'en 1964.'},
+  {y:1947,t:'Irvin Korr publie ses premiers articles sur la facilitation.',d:'Il travaille à Kirksville depuis la fin de 1945.'},
+  {y:1961,t:'Le « Merger » : Marsh (DO) et Bostick (MD) signent un accord de fusion des deux professions.',d:'L\'ostéopathie devient une sorte de spécialité de la médecine.'},
+  {y:1962,t:'Le COPS, intégré à l\'Université de Californie à Irvine, ne délivre plus que des MD.',d:'Plus aucun DO n\'y est délivré.'}
+ ]},
+{id:'cm2',tab:'CM2',sub:'Ostéopathie dans le monde',
+ intro:'Cours magistral 2 : la diffusion de l\'ostéopathie, en France surtout, puis en Europe.',
+ events:[
+ {y:1913,t:'Premier traité d\'ostéopathie en français (Mann et Moutin).',d:'Manuel d\'ostéopathie pratique.'},
+ {y:1917,t:'Littlejohn fonde la BSO à Londres.',d:'Date approximative (« vers 1917 »). La BSO est devenue l\'UCO.'},
+ {y:1932,t:'Le Dr Lavezzari établit l\'ostéopathie en France, pratiquée par le médecin.',d:'Vers 1932, même s\'il exerce depuis 1929.'},
+ {y:1951,t:'Paul Gény fonde l\'École Française d\'Ostéopathie à Paris.',d:'À l\'origine des premiers kinésithérapeutes ostéopathes.'},
+ {y:1956,t:'Proposition de loi pour créer un diplôme d\'État d\'ostéopathe.',d:'Déposée par le député Frédéric-Dupont, jamais adoptée.'},
+ {y:1962,t:'Un arrêté réserve aux seuls médecins les traitements dits d\'ostéopathie.',d:'Arrêté du 6 janvier 1962 : début d\'une période de répression.'},
+ {y:1964,t:'Gény transfère son école à Londres, dans les locaux de la BCNO.',d:'Elle deviendra l\'ESO.'},
+ {y:1983,t:'Projet de loi de Pierre Bas, perdu dans les archives du ministère.',d:'Il ne passera jamais par l\'Assemblée nationale ni le Sénat.'},
+ {y:1993,t:'L\'Osteopaths Act encadre la profession au Royaume-Uni.',d:'Il charge le GOsC d\'enregistrer les ostéopathes.'},
+ {y:1999,t:'La Belgique reconnaît théoriquement la profession (loi Colla).',d:'Sans vraie reconnaissance officielle ensuite.'},
+ {y:2002,t:'La loi Kouchner réserve l\'usage du titre d\'ostéopathe.',d:'Loi du 4 mars 2002, article 75. Sans décret, elle reste incomplète.'},
+ {y:2007,t:'Décret fixant les actes et conditions d\'exercice de l\'ostéopathie.',d:'Décret du 25 mars 2007 : il pose les bases du titre partagé.'},
+ {y:2010,t:'Projet de loi du Pr Bernard Debré, qui ne verra jamais le jour.',d:'Il prévoyait un Haut Conseil de l\'ostéopathie et de la chiropraxie.'},
+ {y:2012,t:'Trois lois encadrent l\'ostéopathie en Russie.',d:'Elle y est réservée aux seuls médecins.'},
+ {y:2018,t:'Le Luxembourg régule la profession.',d:'Avec obligation de formation continue (environ 40 h par an).'},
+ {y:2020,t:'La loi suisse sur les professions de la santé entre en vigueur.',d:'L\'ostéopathie y devient une profession de santé.'},
+ {y:2023,t:'Rapport de l\'IGAS sur l\'ostéopathie : 26 recommandations.',d:'Contrôle des écoles, démographie, registre des accidents.'},
+ {y:2025,t:'Création du Collège pour la formation et la recherche en ostéopathie.',d:'Le CFRO.'}
+ ]},
+{id:'cm3',tab:'CM3',sub:'Histoire du concept',
+ intro:'Cours magistral 3 : comment le concept ostéopathique a été formulé, puis questionné.',
+ events:[
+ {y:1910,label:'dès 1910',t:'Premières tentatives individuelles de lister des principes (Hulett, Overly, Fryette…).',d:'Avant 1910, il n\'existe pas de corpus conceptuel précis.'},
+ {y:1922,t:'Nouvelle série de textes et de conférences pour fixer le concept.',d:'Hulett, Goodie, Atzen, Proby… chacun à sa façon, parfois en désaccord.'},
+ {y:1953,t:'Un comité de 8 personnes rédige The Osteopathic Concept.',d:'Quatre principes, pour l\'enseignement de la KCOS.'},
+ {y:1977,label:'fin des années 1970',t:'Georges Engel propose le modèle biopsychosocial.',d:'Il critique le modèle dominant, essentiellement biomédical.'},
+ {y:1981,t:'Le Project on Osteopathic Principles Education définit ce qu\'est un principe.',d:'Sprafka et al., 1981.'},
+ {y:1993,t:'Hayes et Greeman redéfinissent les principes et en ajoutent 10 nouveaux.',d:'Pour les garder pertinents et actuels.'},
+ {y:2000,label:'années 2000',t:'Naissance de la médecine narrative aux États-Unis, notamment avec Rita Charon.',d:'Elle vise une relation médecin-malade de qualité, fondée sur l\'écoute.'},
+ {y:2002,t:'Rogers, Korr et collègues publient dans le JAOA ; Clark répond de façon très conservatrice.',d:'Un débat qui montre que la question des principes n\'est pas close.'},
+ {y:2013,t:'Marie Eckert publie son travail sur le concept de globalité en ostéopathie.',d:'La globalité des ostéopathes serait plus celle du corps que de la personne.'},
+ {y:2013,t:'Evans s\'interroge sur la pertinence et le sens des principes ostéopathiques.',d:'Même année qu\'Eckert : l\'ordre entre les deux est libre.'},
+ {y:2023,t:'Davis et al. étudient le vécu des patients face aux principes ostéopathiques.',d:'Résultat à prendre avec précaution (biais d\'attente positive).'},
+ {y:2024,t:'Dunn et al. mesurent le poids des facteurs dans la chronicité de la lombalgie.',d:'Figure 9 du polycopié, avec les odds ratios.'}
+ ]}
+];
+
+const $=s=>document.querySelector(s);
+const tabsEl=$('#tabs'), listEl=$('#list'), msgEl=$('#msg');
+const state={}; let cur='cm1';
+
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function sortedYears(l){return l.events.map(e=>e.y).sort((a,b)=>a-b)}
+function isSorted(l,order){const s=sortedYears(l);return order.every((i,p)=>l.events[i].y===s[p])}
+function freshOrder(l){let o;do{o=shuffle(l.events.map((_,i)=>i))}while(isSorted(l,o));return o}
+function line(){return LINES.find(l=>l.id===cur)}
+
+LINES.forEach(l=>{state[l.id]={order:freshOrder(l),marks:null,revealed:false,msg:''}});
+
+function renderTabs(){
+  tabsEl.innerHTML='';
+  LINES.forEach(l=>{
+    const b=document.createElement('button');
+    b.className='tab';b.type='button';b.setAttribute('role','tab');
+    b.setAttribute('aria-selected',String(l.id===cur));
+    b.innerHTML=l.tab+'<small>'+l.sub+'</small>';
+    b.onclick=()=>{cur=l.id;renderTabs();render()};
+    tabsEl.appendChild(b);
+  });
+}
+
+const COARSE=window.matchMedia&&matchMedia('(pointer:coarse)').matches;
+function render(focusIdx,focusAct){
+  const l=line(), st=state[cur];
+  $('#line-intro').textContent=l.intro;
+  $('#count').textContent=l.events.length+' cartes';
+  listEl.innerHTML='';
+  st.order.forEach((idx,p)=>{
+    const ev=l.events[idx];
+    const li=document.createElement('li');
+    li.className='card'+(st.revealed?' revealed':'')+(st.marks?(st.marks[p]?' ok':' bad'):'');
+    li.dataset.idx=idx;
+    li.draggable=!st.revealed&&!COARSE;
+    const pos=document.createElement('div');pos.className='pos';
+    pos.textContent=st.revealed?(ev.label||ev.y):(p+1);
+    const tx=document.createElement('div');tx.className='txt';
+    const b=document.createElement('span');b.textContent=ev.t;tx.appendChild(b);
+    if(st.marks){const m=document.createElement('span');m.className='mark';m.textContent=st.marks[p]?'✓ bien placé':'✗ à revoir';tx.appendChild(m)}
+    if(st.revealed){const d=document.createElement('span');d.className='detail';d.textContent=ev.d;tx.appendChild(d)}
+    li.append(pos,tx);
+    if(!st.revealed){
+      const mv=document.createElement('div');mv.className='moves';
+      const up=document.createElement('button');up.className='mv';up.type='button';up.dataset.act='up';up.setAttribute('aria-label','Monter la carte');up.textContent='▲';up.disabled=p===0;
+      const dn=document.createElement('button');dn.className='mv';dn.type='button';dn.dataset.act='down';dn.setAttribute('aria-label','Descendre la carte');dn.textContent='▼';dn.disabled=p===st.order.length-1;
+      const ar=document.createElement('div');ar.className='arrows';ar.append(up,dn);
+      const gr=document.createElement('div');gr.className='grip';gr.setAttribute('aria-hidden','true');gr.textContent='⠿';
+      mv.append(gr,ar);li.appendChild(mv);
+    }
+    listEl.appendChild(li);
+  });
+  msgEl.textContent=st.msg;
+  $('#check').disabled=st.revealed;
+  $('#reveal').disabled=st.revealed;
+  if(focusIdx!=null){
+    const t=listEl.querySelector('li[data-idx="'+focusIdx+'"] [data-act="'+focusAct+'"]:not(:disabled)')||listEl.querySelector('li[data-idx="'+focusIdx+'"] .mv:not(:disabled)');
+    if(t)t.focus();
+  }
+}
+
+/* Flèches haut / bas */
+listEl.addEventListener('click',e=>{
+  const btn=e.target.closest('.mv'); if(!btn)return;
+  const st=state[cur], li=btn.closest('li'), idx=+li.dataset.idx, p=st.order.indexOf(idx);
+  const q=btn.dataset.act==='up'?p-1:p+1;
+  if(q<0||q>=st.order.length)return;
+  [st.order[p],st.order[q]]=[st.order[q],st.order[p]];
+  st.marks=null;st.msg='';
+  render(idx,btn.dataset.act);
+});
+
+/* Glisser-déposer */
+let dragEl=null;
+listEl.addEventListener('dragstart',e=>{
+  const li=e.target.closest('li'); if(!li||state[cur].revealed)return;
+  dragEl=li;li.classList.add('dragging');
+  e.dataTransfer.effectAllowed='move';
+  try{e.dataTransfer.setData('text/plain',li.dataset.idx)}catch(_){}
+});
+listEl.addEventListener('dragover',e=>{
+  if(!dragEl)return; e.preventDefault();
+  const after=[...listEl.querySelectorAll('li:not(.dragging)')].find(li=>{const r=li.getBoundingClientRect();return e.clientY<r.top+r.height/2});
+  if(after)listEl.insertBefore(dragEl,after);else listEl.appendChild(dragEl);
+});
+listEl.addEventListener('drop',e=>e.preventDefault());
+listEl.addEventListener('dragend',()=>{
+  if(!dragEl)return; dragEl.classList.remove('dragging'); dragEl=null;
+  const st=state[cur];
+  st.order=[...listEl.children].map(li=>+li.dataset.idx);
+  st.marks=null;st.msg='';render();
+});
+
+/* Glisser au doigt (ou au stylet) : on déplace la carte dans la liste selon la position du doigt, avec défilement automatique près des bords. */
+let tdrag=null;
+function touchMove(){
+  if(!tdrag)return;
+  const y=tdrag.y, li=tdrag.li;
+  const after=[...listEl.querySelectorAll('li:not(.dragging)')].find(o=>{const r=o.getBoundingClientRect();return y<r.top+r.height/2});
+  if(after){if(li.nextSibling!==after)listEl.insertBefore(li,after)}else if(li!==listEl.lastElementChild)listEl.appendChild(li);
+  const edge=70; if(y<edge)window.scrollBy(0,-14); else if(y>innerHeight-edge)window.scrollBy(0,14);
+  tdrag.raf=requestAnimationFrame(touchMove);
+}
+listEl.addEventListener('pointerdown',e=>{
+  const g=e.target.closest('.grip'); if(!g||state[cur].revealed)return;
+  e.preventDefault();
+  const li=g.closest('li'); g.setPointerCapture(e.pointerId);
+  li.classList.add('dragging','touch'); tdrag={li,y:e.clientY,id:e.pointerId,g,raf:requestAnimationFrame(touchMove)};
+});
+listEl.addEventListener('pointermove',e=>{if(tdrag&&e.pointerId===tdrag.id)tdrag.y=e.clientY});
+function endTouch(e){
+  if(!tdrag||e.pointerId!==tdrag.id)return;
+  cancelAnimationFrame(tdrag.raf); tdrag.li.classList.remove('dragging','touch'); tdrag=null;
+  const st=state[cur]; st.order=[...listEl.children].map(li=>+li.dataset.idx); st.marks=null; st.msg=''; render();
+}
+listEl.addEventListener('pointerup',endTouch);
+listEl.addEventListener('pointercancel',endTouch);
+
+/* Boutons */
+$('#check').onclick=()=>{
+  const l=line(), st=state[cur], s=sortedYears(l);
+  st.marks=st.order.map((i,p)=>l.events[i].y===s[p]);
+  const n=st.marks.filter(Boolean).length;
+  st.msg=n===st.marks.length
+    ?'Bravo, tout est dans le bon ordre ! Clique sur « Voir la correction » pour relire les dates.'
+    :n+' carte'+(n>1?'s':'')+' sur '+st.marks.length+' bien placée'+(n>1?'s':'')+'. Déplace celles en rouge, puis vérifie à nouveau.';
+  render();
+};
+$('#reveal').onclick=()=>{
+  const l=line(), st=state[cur];
+  st.order=l.events.map((e,i)=>i).sort((a,b)=>l.events[a].y-l.events[b].y||a-b);
+  st.revealed=true;st.marks=null;st.msg='Voici la correction, avec les dates et quelques précisions.';
+  render();
+};
+$('#again').onclick=()=>{
+  const l=line();
+  state[cur]={order:freshOrder(l),marks:null,revealed:false,msg:''};
+  render();
+};
+
+renderTabs();render();
+</script>
+
+</body></html>
