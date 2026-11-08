@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<!-- viewport-fit=cover : la page peut s'étendre sous les barres système d'un téléphone -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Plateau d'histoire de l'ostéopathie</title>
+<style>
+/* =====================================================================
+   1. JETONS DE DESIGN (couleurs, repris de la charte brun / cuivre / beige)
+   ---------------------------------------------------------------------
+   Tout passe par des variables CSS : le mode clair est le défaut, le mode
+   sombre redéfinit les mêmes variables (deux fois : préférence système et
+   attribut data-theme posé par l'hôte de la page).
+   ===================================================================== */
+:root {
+  box-sizing: border-box;
+  /* marges de sécurité pour les téléphones (valent 0 sur ordinateur) */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+
+  --paper: #F3EBDD;      /* fond de page : beige */
+  --panel: #FBF6EC;      /* fond des panneaux */
+  --ink: #3A281C;        /* texte : brun foncé */
+  --ink-soft: #6B5644;   /* texte secondaire */
+  --line: #9A7B5F;       /* traits et bordures */
+  --btn-bg: #7C4414;     /* bouton principal : cuivre foncé */
+  --btn-ink: #FFF8EE;
+  --focus: #B06A2C;      /* anneau de focus et case active : cuivre */
+
+  /* un fond par type de case (clair, économe en encre si on imprime) */
+  --c-qui: #E8B99A;
+  --c-ordre: #B8CDD6;
+  --c-vf: #C5D5B0;
+  --c-etape: #EBD28A;
+  --c-duel: #E6BFC4;
+  --c-rebond: #D4D0E0;
+  --c-bord: var(--panel);  /* départ et arrivée */
+
+  /* une couleur de bandeau par zone thématique */
+  --z0: #8B4A2B;
+  --z1: #2F6F73;
+  --z2: #7D7A2F;
+  --z3: #5E4B8B;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #241A14; --panel: #2E221A; --ink: #F0E4D3; --ink-soft: #C3AE98;
+    --line: #8A6A4F; --btn-bg: #D18B4E; --btn-ink: #241A14; --focus: #D18B4E;
+    --c-qui: #7A4B34; --c-ordre: #3F5560; --c-vf: #52633F; --c-etape: #7A6A2E;
+    --c-duel: #7A4A52; --c-rebond: #55506A;
+    --z0: #C9805A; --z1: #5FA8AC; --z2: #B4B15A; --z3: #9C88CF;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #241A14; --panel: #2E221A; --ink: #F0E4D3; --ink-soft: #C3AE98;
+  --line: #8A6A4F; --btn-bg: #D18B4E; --btn-ink: #241A14; --focus: #D18B4E;
+  --c-qui: #7A4B34; --c-ordre: #3F5560; --c-vf: #52633F; --c-etape: #7A6A2E;
+  --c-duel: #7A4A52; --c-rebond: #55506A;
+  --z0: #C9805A; --z1: #5FA8AC; --z2: #B4B15A; --z3: #9C88CF;
+}
+
+/* =====================================================================
+   2. BASE
+   ===================================================================== */
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+*, *::before, *::after { box-sizing: inherit; }
+body {
+  margin: 0;
+  background: var(--paper);          /* fond explicite, requis pour le thème */
+  color: var(--ink);
+  font-family: Arial, Helvetica, sans-serif;
+  line-height: 1.45;
+}
+h1, h2, h3, p { margin: 0; }
+h1 { font-size: 1.35rem; }
+h2 { font-size: 1.15rem; }
+.wrap { max-width: 1280px; margin: 0 auto; padding: 12px 16px 28px; }
+.sous { color: var(--ink-soft); font-size: .9rem; }
+
+/* barre du haut */
+.bar { display: flex; justify-content: space-between; align-items: center;
+       gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.bar-droite { display: flex; align-items: center; gap: 12px; }
+.chrono { font-weight: 700; font-variant-numeric: tabular-nums; }
+.chrono.fini { color: var(--btn-bg); }
+
+/* boutons */
+.btn {
+  font: inherit; font-weight: 700; cursor: pointer;
+  padding: .6em 1.1em; border-radius: 8px;
+  border: 2px solid var(--btn-bg); background: var(--btn-bg); color: var(--btn-ink);
+}
+.btn.sec { background: transparent; color: var(--ink); border-color: var(--line); }
+.btn:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 3px solid var(--focus); outline-offset: 2px;
+}
+.rangee { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+/* panneaux */
+.panel { background: var(--panel); border: 2px solid var(--line);
+         border-radius: 10px; padding: 14px 16px; }
+
+/* =====================================================================
+   3. PLATEAU
+   ---------------------------------------------------------------------
+   Le plateau est une grille de 10 colonnes x 3 lignes. Chaque case et
+   chaque pion est placé en pourcentage grâce aux variables --col et --row,
+   ce qui garde le plateau net à toutes les tailles et permet d'animer le
+   déplacement des pions avec une simple transition CSS.
+   Les tailles de police utilisent cqw (1 % de la largeur du plateau).
+   ===================================================================== */
+.defile { overflow-x: auto; }               /* sur petit écran, le plateau défile seul */
+.plateau {
+  position: relative; width: 100%; min-width: 640px;
+  aspect-ratio: 10 / 3;                     /* chaque case est un carré */
+  container-type: inline-size;
+}
+.sq {
+  position: absolute; width: 10%; height: 33.3333%;
+  left: calc(var(--col) * 10%); top: calc(var(--row) * 33.3333%);
+  padding: .3cqw;
+}
+.sq-in {
+  position: relative; height: 100%; overflow: hidden;
+  border: 2px solid var(--ink); border-radius: .8cqw;
+  background: var(--fond);
+  color: var(--ink);
+}
+.sq-num { position: absolute; top: .35cqw; left: .55cqw; font-size: 1.1cqw; font-weight: 700; }
+.sq-sym { position: absolute; left: 0; right: 0; top: 15%; text-align: center;
+          font-size: 1.9cqw; font-weight: 700; white-space: nowrap; }
+.sq-bande { position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: var(--zone); }
+.sq.actif { z-index: 1; }
+.sq.actif .sq-in { box-shadow: 0 0 0 .35cqw var(--focus); }
+
+/* pions : une « place » (--slot) par équipe, pour que deux équipes
+   sur la même case ne se recouvrent jamais */
+.pion {
+  position: absolute; z-index: 2; width: 2.1%; aspect-ratio: 1;
+  left: calc(var(--col) * 10% + .5% + var(--slot) * 2.3%);
+  top: calc(var(--row) * 33.3333% + 21%);
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid #FFF5E6; border-radius: 50%;
+  color: #fff; font-weight: 700; font-size: 1.05cqw;
+  transition: left .6s ease, top .6s ease;  /* le pion glisse vers sa nouvelle case */
+}
+.pion.courant { box-shadow: 0 0 0 2px var(--ink); }
+@media (prefers-reduced-motion: reduce) { .pion { transition: none; } }
+
+/* légende */
+.legende { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 10px 0 14px;
+           font-size: .85rem; color: var(--ink-soft); }
+.leg { display: inline-flex; align-items: center; gap: 6px; }
+.leg i { display: inline-block; min-width: 26px; padding: 1px 4px; text-align: center;
+         font-style: normal; font-weight: 700; font-size: .75rem; color: var(--ink);
+         border: 1.5px solid var(--ink); border-radius: 4px; background: var(--fond); }
+.leg b { display: inline-block; width: 14px; height: 6px; background: var(--zone); }
+
+/* =====================================================================
+   4. ZONE DE JEU (carte en cours + équipes)
+   ===================================================================== */
+.bas { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 820px) { .bas { grid-template-columns: 1fr; } }
+
+.tour-tete { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.badge { flex: none; display: inline-flex; align-items: center; justify-content: center;
+         width: 34px; height: 34px; border-radius: 50%; border: 2px solid #FFF5E6;
+         color: #fff; font-weight: 700; }
+.puces { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.puce { font-size: .8rem; padding: 1px 8px; border: 1.5px solid var(--line); border-radius: 99px; }
+
+.aide { color: var(--ink-soft); margin-bottom: 4px; }
+.enonce { font-size: 1.2rem; font-weight: 700; max-width: 70ch; }
+.consigne { color: var(--ink-soft); margin-bottom: 8px; }
+.indices, .items, .ordre-exact { margin: 8px 0 0; padding-left: 1.4em; max-width: 70ch; }
+.indices li, .items li, .ordre-exact li { margin: 5px 0; }
+.items { list-style: upper-alpha; font-weight: 700; }
+.reponse { margin-top: 12px; padding: 10px 12px; border-left: 5px solid var(--focus);
+           background: var(--paper); max-width: 70ch; }
+.note { color: var(--ink-soft); font-size: .92rem; margin-top: 4px; }
+.resultat { font-size: 1.1rem; font-weight: 700; margin-bottom: 4px; max-width: 70ch; }
+
+/* équipes */
+.equipe { display: grid; grid-template-columns: 34px 1fr; gap: 4px 10px; align-items: center;
+          padding: 8px; border: 2px solid transparent; border-radius: 8px; }
+.equipe + .equipe { margin-top: 6px; }
+.equipe.courante { border-color: var(--focus); }
+.equipe .nom { font-weight: 700; overflow-wrap: anywhere; }
+.equipe .case { color: var(--ink-soft); font-size: .85rem; }
+.progres { grid-column: 2; height: 6px; background: var(--paper); border-radius: 3px; overflow: hidden; }
+.progres span { display: block; height: 100%; background: var(--equipe); }
+.stats { margin-top: 10px; color: var(--ink-soft); font-size: .85rem; }
+
+/* =====================================================================
+   5. ACCUEIL ET BILAN
+   ===================================================================== */
+.accueil { max-width: 720px; margin: 24px auto; }
+.accueil h1 { font-size: 1.7rem; margin-bottom: 4px; }
+.regles { margin: 14px 0 18px; padding-left: 1.2em; }
+.regles li { margin: 4px 0; }
+.champs { display: grid; gap: 8px; margin-top: 10px; }
+label { display: grid; gap: 3px; font-weight: 700; font-size: .9rem; }
+input, select { font: inherit; padding: .45em .6em; border-radius: 6px;
+                border: 2px solid var(--line); background: var(--paper); color: var(--ink); }
+.ligne { display: flex; flex-wrap: wrap; gap: 16px; }
+.ligne label { min-width: 180px; }
+
+.voile { position: fixed; inset: 0; z-index: 10; overflow-y: auto;
+         background: rgba(30, 20, 12, .6); padding: 20px 12px; }
+.bilan { max-width: 640px; margin: 0 auto; }
+.bilan ol.rang { padding-left: 1.3em; }
+.bilan li { margin: 6px 0; }
+.revoir li { margin: 10px 0; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+"use strict";
+
+/* =====================================================================
+   1. DONNÉES DU JEU
+   ---------------------------------------------------------------------
+   Tout ce qui change d'un cours à l'autre est regroupé ici : pour ajouter
+   du contenu, il suffit de coller de nouveaux blocs dans CARTES, DUELS ou
+   REBONDS. Le reste du code n'a pas besoin d'être modifié.
+   Version 2 : cartes tirées des polycopiés CM2 à CM5. Chaque carte porte
+   un champ "src" affiché au verso, pour retrouver le passage du cours.
+   ===================================================================== */
+
+// Les quatre zones du plateau, dans l'ordre du parcours.
+// "couleur" renvoie à une variable CSS définie plus haut (--z0 à --z3).
+const ZONES = [
+  { id: "amerique",  nom: "Amérique",                 de: 1,  a: 7,  couleur: "var(--z0)" },
+  { id: "europe",    nom: "Europe et monde",          de: 8,  a: 14, couleur: "var(--z1)" },
+  { id: "therapies", nom: "Thérapies manuelles",      de: 15, a: 21, couleur: "var(--z2)" },
+  { id: "concept",   nom: "Concept et lésion",        de: 22, a: 28, couleur: "var(--z3)" }
+];
+
+// Les six formats de case : libellé complet, symbole (jamais la couleur seule,
+// pour rester lisible en noir et blanc ou pour un étudiant daltonien),
+// et variable CSS de la couleur de fond.
+const TYPES = {
+  qui:    { label: "Qui suis-je ?",         sym: "?",     fond: "var(--c-qui)" },
+  ordre:  { label: "Remettez dans l'ordre", sym: "1 2 3", fond: "var(--c-ordre)" },
+  vf:     { label: "Vrai ou faux",          sym: "V/F",   fond: "var(--c-vf)" },
+  etape:  { label: "Case étape",            sym: "★",     fond: "var(--c-etape)" },
+  duel:   { label: "Duel",                  sym: "VS",    fond: "var(--c-duel)" },
+  rebond: { label: "Rebondissement",        sym: "±",     fond: "var(--c-rebond)" },
+  depart: { label: "Départ",                sym: "Départ", fond: "var(--c-bord)" },
+  arrivee:{ label: "Arrivée",               sym: "Arrivée", fond: "var(--c-bord)" }
+};
+
+// Le plateau : une entrée par case, de 0 (départ) à 29 (arrivée).
+// Les étapes ferment chaque zone (cases 7, 14, 21 et 28).
+const PLATEAU = [
+  "depart",
+  "qui", "vf", "ordre", "qui", "rebond", "vf", "etape",      // 1 à 7   : Amérique
+  "qui", "ordre", "vf", "duel", "qui", "vf", "etape",        // 8 à 14  : Europe et monde
+  "vf", "qui", "rebond", "ordre", "qui", "vf", "etape",      // 15 à 21 : Thérapies manuelles
+  "qui", "ordre", "duel", "vf", "rebond", "qui", "etape",    // 22 à 28 : Concept et lésion
+  "arrivee"
+];
+const ARRIVEE = PLATEAU.length - 1;   // numéro de la dernière case (29)
+
+// Nombre de cases gagnées selon le résultat. Modifiez ces valeurs pour
+// rééquilibrer la longueur de la partie sans toucher au reste du code.
+const GAINS = {
+  qui:   [3, 2, 1],                                         // trouvé à l'indice 1, 2 ou 3
+  vf:    { juste: 2, justeSansArgument: 1, faux: 0 },
+  ordre: { exact: 3, inversion: 2, partiel: 1, rate: 0 },
+  etape: { exact: 4, inversion: 3, partiel: 2, rate: 1 },   // une étape fait toujours avancer d'au moins 1
+  duel:  2
+};
+
+// Les cartes par zone. Pour ajouter une carte, copiez un bloc existant.
+//  - qui    : 3 indices de plus en plus précis, la réponse, une note facultative
+//  - vf     : un énoncé, vrai (true/false), une explication
+//  - ordre / etape : des événements DÉJÀ DANS LE BON ORDRE (le jeu les mélange).
+//                    "y" est l'étiquette de date affichée à la correction.
+//  - src    : cours d'origine, affiché au verso pour vérifier la carte
+// Les cartes viennent des polycopiés CM1 à CM5.
+// Les faits que la liste de corrections signale comme douteux n'y figurent pas.
+const CARTES = {
+
+  /* ==================================================================
+     ZONE 1 : AMÉRIQUE (CM1 pour les débuts, CM3 / CM4 / CM5 pour le reste)
+     ================================================================== */
+  amerique: {
+    qui: [
+      { indices: ["J'ai servi comme médecin militaire dans l'armée de l'Union pendant la guerre de Sécession.",
+                  "Insatisfait de la médecine de mon époque, je cherche une approche centrée sur le corps et ses capacités d'autorégulation.",
+                  "En 1874, je déclare avoir fondé une nouvelle approche que j'appellerai ostéopathie."],
+        reponse: "Andrew Taylor Still",
+        note: "Avant cela, il s'est aussi fait appeler « magnetic healer », « human engineer » ou « lightning bonesetter ».", src: "CM1" },
+      { indices: ["Je suis une ville de l'État du Missouri.",
+                  "En 1892, on y a ouvert la première école d'ostéopathie.",
+                  "Mon école, l'American School of Osteopathy, deviendra le Kirksville College of Osteopathy and Surgery."],
+        reponse: "Kirksville", src: "CM1 et CM3" },
+      { indices: ["Je suis enseignant de formation, pas médecin.",
+                  "En 1910, j'ai audité toutes les structures de formation médicale du Canada et des États-Unis.",
+                  "Mon rapport préconise de fermer 117 des 148 écoles de médecine, et il consacre un chapitre aux « sectes médicales »."],
+        reponse: "Abraham Flexner",
+        note: "Il aurait même reçu des menaces de mort. Dix ans plus tard, la moitié des écoles avaient fermé.", src: "CM1" },
+      { indices: ["Je suis né à Glasgow, en Écosse, et j'ai émigré aux États-Unis avec mes frères.",
+                  "Je me forme à l'ASO auprès de Still, puis je fonde un collège ostéopathique à Chicago avec mes frères.",
+                  "J'écris « Lectures on Psycho-Physiology », une synthèse de psychologie à destination des étudiants."],
+        reponse: "John Martin Littlejohn",
+        note: "Il cite ses sources, contrairement à Still. Mais il fut un dirigeant d'école critiqué.", src: "CM1" },
+      { indices: ["Je suis la première chercheuse en ostéopathie.",
+                  "Mes animaux d'expérimentation étaient des lapins.",
+                  "Pour provoquer des lésions, je mets les articulations en contrainte, dans les limites de leur mobilité."],
+        reponse: "Louisa Burns",
+        note: "Elle a dirigé le Sunny Slope Laboratory. La synthèse de ses travaux est parue dans « Pathogenesis of Visceral Disease following Vertebral Lesions » (1948).", src: "CM1 et CM5" },
+      { indices: ["Je suis physiologiste et j'ai obtenu mon doctorat à Princeton.",
+                  "À Kirksville, j'ai publié en 1947 mon premier article sur le sujet dans l'American Journal of Physiology.",
+                  "Je suis connu pour mes travaux sur le segment facilité et la dysfonction somatique."],
+        reponse: "Irvin Korr",
+        note: "Il est aussi l'auteur de « Bases physiologiques de l'ostéopathie ».", src: "CM1 et CM5" },
+      { indices: ["Je suis une ostéopathe formée à Des Moines et j'ai exercé à Détroit.",
+                  "En 1914, je prends la tête du département des techniques ostéopathiques à l'ASO, où je rencontre Still.",
+                  "Je suis l'auteure d'« Osteopathic Mechanics », un ouvrage incontournable de l'époque."],
+        reponse: "Edythe Ashmore", src: "CM1" },
+      { indices: ["Ostéopathe afro-américain, j'ai été diplômé de l'école de Des Moines.",
+                  "J'ai défendu les droits civiques aux côtés de Martin Luther King.",
+                  "J'ai présidé l'AOA en 1994, et un programme d'aide financière aux étudiants issus des minorités porte mon nom."],
+        reponse: "William G. Anderson", src: "CM1" },
+      { indices: ["Je suis une ostéopathe spécialisée en pédiatrie.",
+                  "J'ai été formée par William Garner Sutherland et j'ai promu l'approche crânienne aux États-Unis, puis en Europe.",
+                  "Je suis à l'origine de l'ouverture à Pomona, en Californie, d'une école de médecine ostéopathique."],
+        reponse: "Viola Frymann", src: "CM1" },
+      { indices: ["À l'origine, je suis journaliste dans le Middle West.",
+                  "Je publie d'abord sous le pseudonyme « Blunt Bone Bill » dans The Northwest Bulletin.",
+                  "En 1939, je publie « The Cranial Bowl »."],
+        reponse: "William Garner Sutherland",
+        note: "Il crée en 1953 la Sutherland Cranial Teaching Foundation, en Californie.", src: "CM1" },
+      { indices: ["Je suis une année, mais surtout une date charnière pour la Californie.",
+                  "Dorothy Marsh, DO, et Warren Bostick, MD, signent cette année-là un accord entre les deux professions.",
+                  "On l'appelle le Merger, ou la Fusion."],
+        reponse: "1961",
+        note: "Un petit groupe d'ostéopathes a refusé l'accord et a poursuivi le combat par la voie judiciaire et législative.", src: "CM1" },
+      { indices: ["Je compte parmi les premiers élèves de Still, diplômé de l'American School of Osteopathy.",
+                  "Entre 1910 et 1950, j'ai proposé une liste de principes ostéopathiques.",
+                  "En 1906, j'ai défini la lésion ostéopathique comme toute perversion structurelle qui, par pression, produit ou entretient un trouble fonctionnel."],
+        reponse: "Guy Dudley Hulett",
+        note: "Il répertorie trois types de lésions : osseuse, articulaire et viscérale.", src: "CM3 et CM5" },
+      { indices: ["Dans les années 1940, je cherche à expliquer par la physiologie les effets des traitements que les ostéopathes pratiquent chaque jour.",
+                  "Mon modèle associe limitation de mobilité, spasme musculaire et effets somato-viscéraux.",
+                  "On parle de mon « segment facilitateur »."],
+        reponse: "Irvin Korr",
+        note: "Il a aussi cosigné en 2002, avec Rogers et d'autres collègues, un article du JAOA sur les principes ostéopathiques.", src: "CM3 et CM5" },
+      { indices: ["J'enseignais à Kirksville.",
+                  "Dans les années 1960, j'ai proposé de changer un terme pour le rendre plus compréhensible auprès du grand public et des assurances médicales.",
+                  "Grâce à mon idée, la lésion ostéopathique est devenue la dysfonction somatique."],
+        reponse: "Ira Rumney", note: "DO, 1913-1978.", src: "CM5" }
+    ],
+    vf: [
+      { enonce: "L'ostéopathie a été fondée avant la chiropraxie.", vrai: true,
+        explication: "Still déclare l'ostéopathie en 1874 ; D.D. Palmer fonde la chiropraxie en 1895.", src: "CM1 et CM4" },
+      { enonce: "La première école d'ostéopathie a ouvert ses portes à Londres.", vrai: false,
+        explication: "Elle a ouvert à Kirksville (Missouri) en 1892 : l'American School of Osteopathy. La BSO de Londres est fondée vers 1917.", src: "CM1 et CM2" },
+      { enonce: "Le mot « ostéopathie » est utilisé pour désigner une forme de médecine dès 1874.", vrai: false,
+        explication: "Still déclare la profession en 1874, mais le nom n'est réellement utilisé pour sa forme de « médecine » qu'en 1885, voire 1889.", src: "CM1" },
+      { enonce: "Dans son rapport de 1910, Flexner traite les ostéopathes de charlatans comme les chiropracteurs.", vrai: false,
+        explication: "Il classe les ostéopathes parmi les « sectes médicales » (dogme appuyé sur des sciences), qui peuvent rejoindre le monde médical s'ils respectent les standards. Il est beaucoup plus dur avec les chiropracteurs et les mécanothérapeutes.", src: "CM1" },
+      { enonce: "Le rapport Flexner préconisait de fermer 117 des 148 écoles de médecine nord-américaines.", vrai: true,
+        explication: "Dix ans plus tard, la moitié d'entre elles avaient fermé. Le rapport a servi de base pour faire pression sur la politique du pays.", src: "CM1" },
+      { enonce: "Le rapport Flexner recensait 8 écoles d'ostéopathie.", vrai: true,
+        explication: "Mais il n'est pas sûr que ce soient les seules : les journaux de l'époque font la publicité d'autres écoles.", src: "CM1" },
+      { enonce: "La multiplication rapide des écoles d'ostéopathie a été surnommée « l'incendie dans la prairie ».", vrai: true,
+        explication: "En référence à un phénomène connu dans le Middle West. Ces écoles étaient pour la plupart à but lucratif, d'où une forte concurrence.", src: "CM1" },
+      { enonce: "Still a délivré des diplômes de MD (docteur en médecine) pour se rapprocher de la médecine.", vrai: false,
+        explication: "Il délivrait des DO, car il tenait à se distinguer de la médecine traditionnelle.", src: "CM1" },
+      { enonce: "Les frères Littlejohn ont quitté l'ASO après un désaccord avec Still, portant en partie sur des arriérés de salaire.", vrai: true,
+        explication: "Ils sont ensuite partis à Chicago, où ils ont fondé leur collège ostéopathique.", src: "CM1" },
+      { enonce: "En Californie, la Fusion (Merger) de 1961 a fait disparaître le DO de l'école : celle-ci ne délivrait plus que des MD.", vrai: true,
+        explication: "Les mentions de l'ostéopathie et de Still ont disparu des documents officiels de l'école. La Californie est le seul État à être allé au bout du processus avant d'en revenir.", src: "CM1" },
+      { enonce: "Aux États-Unis, les DO sont aujourd'hui plus nombreux que les MD.", vrai: false,
+        explication: "Ils restent minoritaires : pour les années 1970-72, environ 14 368 MD reçus à leur examen contre 1 241 DO, soit un facteur d'environ onze.", src: "CM1" },
+      { enonce: "Sutherland a d'abord publié ses idées sur le crâne sous un pseudonyme.", vrai: true,
+        explication: "« Blunt Bone Bill » (Bec osseux émoussé), dans The Northwest Bulletin.", src: "CM1" },
+      { enonce: "Louisa Burns a provoqué des lésions ostéopathiques expérimentales chez le lapin.", vrai: true,
+        explication: "Elle mettait les articulations en contrainte, dans les limites de leur mobilité, et observait des effets neurophysiologiques.", src: "CM1 et CM5" },
+      { enonce: "Dès ses premiers ouvrages, Still a formulé clairement les principes ostéopathiques.", vrai: false,
+        explication: "Still parle de principes à plusieurs reprises sans jamais les formuler clairement. Leur formulation est une œuvre collective et tardive, portée notamment par des diplômés de l'ASO (Hazzard, Hulett, Campbell, Bunting).", src: "CM3" },
+      { enonce: "Aux États-Unis, les ostéopathes ont obtenu un droit d'exercice complet avant que les chiropracteurs n'obtiennent des droits partiels.", vrai: true,
+        explication: "Droit d'exercice complet en 1973 pour les ostéopathes, droits partiels en 1974 pour les chiropracteurs dans les 50 États.", src: "CM4" },
+      { enonce: "D.D. Palmer, le fondateur de la chiropraxie, a eu des échanges avec A.T. Still et l'a consulté dans les années 1890.", vrai: true,
+        explication: "C'est documenté (Baer, 1987).", src: "CM4" },
+      { enonce: "C'est un enseignant de Kirksville, Ira Rumney, qui est à l'origine du passage de « lésion ostéopathique » à « dysfonction somatique ».", vrai: true,
+        explication: "Dans les années 1960, pour rendre le terme plus compréhensible du grand public et des assurances médicales.", src: "CM5" }
+    ],
+    ordre: [
+      { items: [ { t: "Still déclare la naissance de l'ostéopathie", y: "1874" },
+                 { t: "Ouverture de l'American School of Osteopathy à Kirksville", y: "1892" },
+                 { t: "D.D. Palmer fonde la chiropraxie", y: "1895" },
+                 { t: "Décès d'A.T. Still", y: "1917" } ], src: "CM1 et CM4" },
+      { consigne: "La multiplication des écoles : remettez ces créations dans l'ordre.",
+        items: [ { t: "American School of Osteopathy (Kirksville)", y: "1892" },
+                 { t: "Pacific Sanitarium and School of Osteopathy (Anaheim)", y: "1896" },
+                 { t: "Still College of Osteopathy (Des Moines)", y: "1898" },
+                 { t: "Collège ostéopathique de Chicago des frères Littlejohn", y: "1900" },
+                 { t: "Central School of Osteopathy (Kansas City)", y: "1902" } ], src: "CM1" },
+      { consigne: "Les ostéopathes en Californie : remettez dans l'ordre.",
+        items: [ { t: "Ouverture du Los Angeles College of Osteopathy", y: "1905" },
+                 { t: "Rapport Flexner", y: "1910" },
+                 { t: "Fusion du LACO et du PCO en COPS", y: "1914" },
+                 { t: "Accord de fusion (Merger) entre DO et MD", y: "1961" } ], src: "CM1" },
+      { consigne: "La lésion ostéopathique aux États-Unis : remettez ces étapes dans l'ordre.",
+        items: [ { t: "Hulett définit la lésion ostéopathique", y: "1906" },
+                 { t: "McCole critique cette définition", y: "1935" },
+                 { t: "Korr propose le segment facilitateur", y: "Années 1940" },
+                 { t: "Rumney : la lésion devient la dysfonction somatique", y: "Années 1960" } ], src: "CM5" },
+      { consigne: "Concept et droits d'exercice aux États-Unis : remettez dans l'ordre.",
+        items: [ { t: "Un comité de 8 personnes énonce The Osteopathic Concept", y: "1953" },
+                 { t: "Les ostéopathes obtiennent un droit d'exercice complet", y: "1973" },
+                 { t: "Les chiropracteurs obtiennent des droits partiels", y: "1974" },
+                 { t: "Le projet POPE définit ce qu'est un principe ostéopathique", y: "1981" } ], src: "CM3 et CM4" }
+    ],
+    etape: [
+      { consigne: "La carrière de Sutherland : remettez dans l'ordre.",
+        items: [ { t: "Il commence ses études à l'ASO", y: "1898" },
+                 { t: "Il publie « The Cranial Bowl »", y: "1939" },
+                 { t: "Fondation de l'Osteopathic Cranial Association", y: "1946" },
+                 { t: "Il crée la Sutherland Cranial Teaching Foundation", y: "1953" },
+                 { t: "Décès de Sutherland", y: "1954" } ], src: "CM1" },
+      { consigne: "Du flou des débuts aux débats récents : remettez dans l'ordre l'histoire des principes ostéopathiques.",
+        items: [ { t: "Principes évoqués sans corpus précis", y: "Avant 1910" },
+                 { t: "Tentatives individuelles de construire un corpus", y: "1910-1950" },
+                 { t: "The Osteopathic Concept énonce quatre principes", y: "1953" },
+                 { t: "Le projet POPE définit ce qu'est un principe", y: "1981" },
+                 { t: "Rogers, Korr et collègues relancent le débat dans le JAOA", y: "2002" } ], src: "CM3" },
+      { consigne: "Du lésionnel au fonctionnel : remettez dans l'ordre.",
+        items: [ { t: "Hulett définit la lésion ostéopathique", y: "1906" },
+                 { t: "McCole critique cette définition", y: "1935" },
+                 { t: "Korr propose le segment facilitateur", y: "Années 1940" },
+                 { t: "Rumney : la lésion devient la dysfonction somatique", y: "Années 1960" },
+                 { t: "Fryer publie un article de synthèse sur la dysfonction somatique", y: "2016" } ], src: "CM5" },
+      { consigne: "Deux professions américaines : remettez dans l'ordre.",
+        items: [ { t: "D.D. Palmer fonde la chiropraxie", y: "1895" },
+                 { t: "The Osteopathic Concept", y: "1953" },
+                 { t: "Droit d'exercice complet pour les ostéopathes", y: "1973" },
+                 { t: "Droits partiels pour les chiropracteurs", y: "1974" },
+                 { t: "Le projet POPE définit ce qu'est un principe", y: "1981" } ], src: "CM3 et CM4" }
+    ]
+  },
+
+  /* ==================================================================
+     ZONE 2 : EUROPE ET MONDE (CM2)
+     ================================================================== */
+  europe: {
+    qui: [
+      { indices: ["Kinésithérapeute, je suis à l'origine des premiers masseurs-kinésithérapeutes ostéopathes.",
+                  "En 1951, j'ai fondé l'École Française d'Ostéopathie à Paris.",
+                  "Face à la répression contre les ostéopathes français, j'ai transféré mon école à Londres, dans les locaux de la BCNO."],
+        reponse: "Paul Gény", note: "Il serait aussi à l'origine de la proposition de loi de 1956.", src: "CM2" },
+      { indices: ["Médecin français, j'ai été formé par une doctoresse américaine.",
+                  "Vers 1932, j'établis une ostéopathie pratiquée par des médecins.",
+                  "En 1952, j'ai fondé la Société Française d'Ostéopathie, qui existe toujours."],
+        reponse: "Le docteur Lavezzari", src: "CM2" },
+      { indices: ["Je suis une école, fondée à Londres.",
+                  "Mon fondateur est John Martin Littlejohn et je date d'environ 1917.",
+                  "À mon centenaire, j'ai pris le rang d'université : je m'appelle aujourd'hui University College of Osteopathy."],
+        reponse: "La BSO (British School of Osteopathy)", note: "Devenue UCO en 2017, elle est un centre névralgique de la recherche européenne.", src: "CM2" },
+      { indices: ["Je suis un organisme britannique.",
+                  "J'enregistre les ostéopathes, je vérifie leurs qualifications et je promeus la formation continue.",
+                  "L'Osteopaths Act de 1993 me confie ces missions, et l'on me dit équivalent d'un ordre professionnel."],
+        reponse: "Le GOsC", src: "CM2" },
+      { indices: ["Je suis un texte de loi français.",
+                  "Mon article 75 réserve l'usage professionnel du titre d'ostéopathe ou de chiropracteur aux titulaires d'un diplôme d'une formation agréée.",
+                  "Je suis la loi n° 2002-303 du 4 mars 2002."],
+        reponse: "La loi Kouchner", note: "Sans décret d'application, une loi ne dit pas grand-chose : ce sont les décrets de 2007 qui précisent.", src: "CM2" },
+      { indices: ["Je suis un décret français, pris après la loi de 2002.",
+                  "Je précise les actes autorisés et les conditions d'exercice de l'ostéopathie.",
+                  "Je dis que les manipulations sont musculo-squelettiques et myo-fasciales, exclusivement manuelles et externes."],
+        reponse: "Le décret n° 2007-435 du 25 mars 2007", src: "CM2" },
+      { indices: ["Je suis ostéopathe français, premier directeur du CIDO de Saint-Étienne.",
+                  "J'ai écrit de nombreux ouvrages, y compris sur des techniques visant les nerfs crâniens et périphériques.",
+                  "Je suis à l'origine du courant de l'ostéopathie dans le champ viscéral."],
+        reponse: "Jean-Pierre Barral", src: "CM2" },
+      { indices: ["Médecin, je suis une figure importante de l'ostéopathie médicale française.",
+                  "J'ai fondé le concept de DIM, Dérangement Intervertébral Mineur, équivalent de la dysfonction somatique.",
+                  "Un syndrome porte mon nom."],
+        reponse: "Le docteur Robert Maigne", note: "1923-2012.", src: "CM2" },
+      { indices: ["Ostéopathe anglais, je suis élève de Littlejohn.",
+                  "Ma clinique de soins à Maidstone a servi d'appui à l'European School of Osteopathy.",
+                  "J'ai fondé un College of Classical Osteopathy qui porte mon nom."],
+        reponse: "John Wernham", note: "1907-2007.", src: "CM2" }
+    ],
+    vf: [
+      { enonce: "En Allemagne, l'ostéopathie ne peut être pratiquée que par des médecins ou des Heilpraktiker.", vrai: true,
+        explication: "Les Heilpraktiker sont des praticiens alternatifs enregistrés et autorisés par l'État. Les physiothérapeutes peuvent aussi pratiquer sur ordonnance du médecin, et le titre n'est pas légalement régulé.", src: "CM2" },
+      { enonce: "La loi Kouchner de 2002 suffisait à elle seule à fixer les actes que peuvent réaliser les ostéopathes.", vrai: false,
+        explication: "Une loi sans décret ne dit pas grand-chose : ce sont les décrets de 2007, dont le décret n° 2007-435 du 25 mars 2007, qui précisent les actes et les conditions d'exercice.", src: "CM2" },
+      { enonce: "Une proposition de loi de 1956 prévoyait de créer un diplôme d'État d'ostéopathe.", vrai: true,
+        explication: "Un diplôme d'État pour les docteurs en médecine après un an de scolarité, et pour les masseurs-kinésithérapeutes après deux ans. Paul Gény serait à l'origine de ce texte, qui n'a pas abouti.", src: "CM2" },
+      { enonce: "Pour certains ostéopathes de l'époque, les procès pour exercice illégal de la médecine étaient aussi une forme de reconnaissance de leur pratique.", vrai: true,
+        explication: "Être condamné pour exercice illégal de la médecine revenait à assimiler leur pratique à un acte médical.", src: "CM2" },
+      { enonce: "Le rapport IGAS de 2023 décrit une profession majoritairement âgée de plus de 45 ans.", vrai: false,
+        explication: "Il décrit une profession très féminisée (55,3 % de femmes) et majoritairement âgée de moins de 45 ans (environ 70 %).", src: "CM2" },
+      { enonce: "Le rapport IGAS de 2023 propose de placer la profession sous un ordre professionnel.", vrai: false,
+        explication: "Il la place plutôt sous une autorité administrative, et propose un statut de profession de santé sans conventionnement et sans changement de son accès direct.", src: "CM2" },
+      { enonce: "En Suisse, l'ostéopathie est reconnue comme profession de santé suite à une loi de 2019 entrée en vigueur en 2020.", vrai: true,
+        explication: "C'est la loi fédérale sur les professions de la santé (LPSan). Le master délivré par la Haute École de Santé de Fribourg est un prérequis pour s'enregistrer auprès des autorités cantonales.", src: "CM2" },
+      { enonce: "En Russie, l'ostéopathie est réservée aux seuls médecins.", vrai: true,
+        explication: "La filière de formation permet d'être équivalent à un médecin, comme le DO/MD aux États-Unis.", src: "CM2" },
+      { enonce: "Face aux étudiants de l'UNEO, les représentants de l'État disaient vouloir statuer sur une profession de santé plutôt que sur un titre.", vrai: false,
+        explication: "C'est l'inverse : l'État désirait statuer sur un titre et non sur une profession de santé.", src: "CM2" },
+      { enonce: "En Irlande, le titre d'ostéopathe est protégé par la loi.", vrai: false,
+        explication: "Il n'existe ni régulation ni protection du titre. Un registre professionnel (Osteopathic Council of Ireland) existe depuis 2008.", src: "CM2" },
+      { enonce: "En Belgique, la profession est pleinement et officiellement reconnue depuis la loi Colla de 1999.", vrai: false,
+        explication: "Elle est théoriquement reconnue depuis 1999, mais il n'existe pas encore de vraie reconnaissance officielle.", src: "CM2" },
+      { enonce: "Un projet de loi de 2010, dit loi Debré, proposait un Haut Conseil de l'ostéopathie et de la chiropraxie.", vrai: true,
+        explication: "Ce projet, porté par le Pr Bernard Debré, ne s'est jamais concrétisé. Il prévoyait aussi une assurance de responsabilité civile professionnelle obligatoire et un diplôme national.", src: "CM2" }
+    ],
+    ordre: [
+      { consigne: "Les pays nordiques : remettez dans l'ordre la reconnaissance de l'ostéopathie.",
+        items: [ { t: "Finlande : profession reconnue comme professionnel de santé", y: "1994" },
+                 { t: "Islande : reconnaissance de l'ostéopathie", y: "2005" },
+                 { t: "Danemark : loi reconnaissant la profession", y: "2018" },
+                 { t: "Norvège : reconnaissance comme professionnel de santé", y: "2022" } ], src: "CM2" },
+      { items: [ { t: "Paul Gény fonde l'École Française d'Ostéopathie", y: "1951" },
+                 { t: "Proposition de loi sur l'ostéopathie", y: "1956" },
+                 { t: "Arrêté du 6 janvier : les manipulations réservées aux docteurs en médecine", y: "1962" },
+                 { t: "Loi Kouchner", y: "2002" } ], src: "CM2" },
+      { items: [ { t: "Décret du 25 mars sur les actes et les conditions d'exercice", y: "2007" },
+                 { t: "Projet de loi Debré (jamais adopté)", y: "2010" },
+                 { t: "Rapport de l'IGAS", y: "2023" },
+                 { t: "Création du Collège pour la formation et la recherche en ostéopathie (CFRO)", y: "2025" } ], src: "CM2" }
+    ],
+    etape: [
+      { consigne: "De l'EFO au rapport de l'IGAS : remettez dans l'ordre.",
+        items: [ { t: "Fondation de l'École Française d'Ostéopathie", y: "1951" },
+                 { t: "Arrêté réservant aux docteurs en médecine les manipulations vertébrales", y: "1962" },
+                 { t: "Loi Kouchner", y: "2002" },
+                 { t: "Décret sur les actes et conditions d'exercice", y: "2007" },
+                 { t: "Rapport de l'IGAS", y: "2023" } ], src: "CM2" },
+      { consigne: "L'ostéopathie en Russie : remettez dans l'ordre.",
+        items: [ { t: "Début de la formation à Saint-Pétersbourg (Russian Higher School of Osteopathy)", y: "1994" },
+                 { t: "Fondation du Registre national", y: "1997" },
+                 { t: "Apparition de la première école d'État", y: "2000" },
+                 { t: "La RHSO acquiert le statut de Faculté de médecine", y: "2006" },
+                 { t: "Trois lois encadrent la profession", y: "2012" } ], src: "CM2" },
+      { consigne: "De Londres à Luxembourg : remettez dans l'ordre.",
+        items: [ { t: "Fondation de la BSO à Londres", y: "Vers 1917" },
+                 { t: "Fondation de l'EFO à Paris", y: "1951" },
+                 { t: "Osteopaths Act au Royaume-Uni", y: "1993" },
+                 { t: "Loi Kouchner en France", y: "2002" },
+                 { t: "Reconnaissance et régulation de la profession au Luxembourg", y: "2018" } ], src: "CM2" }
+    ]
+  },
+
+  /* ==================================================================
+     ZONE 3 : THÉRAPIES MANUELLES (CM4)
+     ================================================================== */
+  therapies: {
+    qui: [
+      { indices: ["Médecin de l'Antiquité grecque, on me cite pour des descriptions de massage et de manipulations.",
+                  "Dans mon traité des articulations, j'écris que le médecin doit connaître le massage.",
+                  "Selon moi, le massage resserre une articulation trop lâche et relâche une articulation trop rigide."],
+        reponse: "Hippocrate", note: "460-377 av. J.-C. Il décrit aussi un massage du ventre dans le traité des épidémies.", src: "CM4" },
+      { indices: ["Médecin du monde arabo-musulman, je suis né au Xe siècle.",
+                  "Mes traités discutent des massages et des frictions.",
+                  "Je les place dans le cadre de l'exercice physique ou du hammam."],
+        reponse: "Avicenne (Ibn Sina)", note: "980-1037.", src: "CM4" },
+      { indices: ["Je suis chirurgien des rois de France.",
+                  "Je vis à la Renaissance, quand les écrits antiques sont redécouverts.",
+                  "Je traite des techniques manuelles dans le chapitre de mes œuvres consacré au repos et au mouvement."],
+        reponse: "Ambroise Paré", note: "1510-1590.", src: "CM4" },
+      { indices: ["Je pose la loi du nerf : une subluxation diminue la conduction nerveuse et peut affecter les viscères.",
+                  "Dans les années 1890, j'ai consulté A.T. Still.",
+                  "J'ai fondé une pratique en 1895 et, deux ans plus tard, la Palmer School of Chiropractic."],
+        reponse: "Daniel David Palmer", note: "Fondateur de la chiropraxie. Son fils gère l'intendance de l'école.", src: "CM4" },
+      { indices: ["Kinésithérapeute, je me forme à la manipulation articulaire en 1952, puis à la chiropraxie en 1958.",
+                  "Pendant les procès pour exercice illégal de la médecine, je fonde une nouvelle discipline.",
+                  "En 1963, je fonde l'étiopathie."],
+        reponse: "Christian Trédaniel", note: "1934-2011. Il a aussi fait évoluer l'Association Ostéopathique Internationale en Institut Suisse d'Étiopathie en 1967.", src: "CM4" },
+      { indices: ["Médecin, enseignant en gymnastique et ostéopathe, j'ai formé le futur créateur de l'étiopathie.",
+                  "Mon école de kinésithérapie, fondée en 1960 sous un autre nom, m'a survécu en changeant de nom.",
+                  "Je suis à l'origine de la vertébrothérapie."],
+        reponse: "André de Sambucy", note: "1909-1987. Il a participé à la mise en place d'un service de vertébrothérapie à l'AP-HP.", src: "CM4" },
+      { indices: ["Médecin orthopédiste anglais, je prends la suite de Mennell.",
+                  "Je poursuis le travail sur le diagnostic différentiel et l'enrichis par le raisonnement clinique et l'examen clinique.",
+                  "J'ajoute une technique : le massage transverse profond."],
+        reponse: "James Cyriax", src: "CM4" },
+      { indices: ["Je pratique en Angleterre comme rebouteux, ce qu'on appelle un « bone-setter ».",
+                  "Beaucoup de patients me sont adressés par les médecins de mon époque.",
+                  "Je suis né en 1869 et je porte le titre de « Sir »."],
+        reponse: "Sir Herbert Barker", note: "1869-1950.", src: "CM4" }
+    ],
+    vf: [
+      { enonce: "Avant l'ostéopathie, les manipulations vertébrales n'étaient connues qu'en Occident.", vrai: false,
+        explication: "Elles étaient connues en Asie du Sud-Est, en Amérique, en Europe, en Afrique et en Asie centrale. Les praticiens portaient des noms variés : chaman, bonesetter, etc.", src: "CM4" },
+      { enonce: "Le papyrus Edwin Smith décrit surtout des réductions de luxation (mâchoire, clavicule) et des soins de plaies ou de fractures, plutôt que des manipulations articulaires au sens strict.", vrai: true,
+        explication: "On le cite parfois comme description de la thérapie manuelle, mais il s'agit plus de réductions de luxations que de manipulations articulaires proprement dites.", src: "CM4" },
+      { enonce: "Dans le rapport Flexner, l'ostéopathie est jugée potentiellement susceptible de devenir médicale, mais pas la chiropraxie.", vrai: true,
+        explication: "Les écoles de chiropraxie ont été auditées sans que le rapport n'en détaille rien, preuve qu'elles ont de facto été considérées comme n'étant pas des écoles de médecine.", src: "CM4" },
+      { enonce: "Chez les chiropracteurs, on oppose les « straights » (chiropracteurs exclusifs) aux « mixers » (praticiens à double casquette, par exemple avec la naturopathie).", vrai: true,
+        explication: "Les chiropracteurs ont eu pendant une période une tendance à se mélanger avec les naturopathes.", src: "CM4" },
+      { enonce: "La masso-kinésithérapie apparaît officiellement en 1946, quand sont réunifiés les deux volets que le régime de Vichy avait séparés.", vrai: true,
+        explication: "Vichy avait scindé la profession en distinguant les masseurs et la gymnastique médicale. Plusieurs lois de 1946 régularisent le statut des infirmiers masseurs et des masseurs médicaux.", src: "CM4" },
+      { enonce: "La loi de 1995 créant l'Ordre des masseurs-kinésithérapeutes a été appliquée immédiatement.", vrai: false,
+        explication: "Elle n'a pas été appliquée et a même été abrogée par la loi Kouchner de 2002. L'Ordre est mis en place en 2004, réellement effectif en 2006.", src: "CM4" },
+      { enonce: "La thérapie manuelle orthopédique dispose d'une définition légale.", vrai: false,
+        explication: "Elle n'en a pas : c'est un regroupement de pratiques déjà existantes.", src: "CM4" },
+      { enonce: "L'étiopathie est une spécificité très francophone, essentiellement implantée en Suisse et en France.", vrai: true,
+        explication: "Les données disponibles viennent surtout de Trédaniel lui-même ou de sites d'étiopathes, ce qui invite à la prudence.", src: "CM4" },
+      { enonce: "Les rebouteux ont disparu des campagnes au XXe siècle.", vrai: false,
+        explication: "C'est une tradition encore présente dans les régions rurales, voire parfois périurbaines. Le don et la transmission y tiennent une place importante.", src: "CM4" },
+      { enonce: "Au XIXe siècle, la répression a été le principal moyen de lutter contre les guérisseurs.", vrai: false,
+        explication: "L'aspect répressif est peu ou pas utilisé, du fait du succès des guérisseurs et de la protection des notables. On a surtout cherché à diffuser la médecine vers les campagnes.", src: "CM4" },
+      { enonce: "Dès ses débuts, le massage médical a été la cible d'attaques le qualifiant de charlatanisme.", vrai: true,
+        explication: "Le cours note que chaque nouvelle discipline médicale subit souvent ce type d'attaque : la construction d'une légitimité est un long processus de combat et d'organisation.", src: "CM4" }
+    ],
+    ordre: [
+      { consigne: "Des origines aux États-Unis : remettez dans l'ordre.",
+        items: [ { t: "Hippocrate décrit le massage dans ses traités", y: "Antiquité" },
+                 { t: "Avicenne discute des massages et des frictions", y: "Moyen Âge" },
+                 { t: "Ambroise Paré traite des techniques manuelles", y: "Renaissance" },
+                 { t: "D.D. Palmer fonde la chiropraxie", y: "1895" } ], src: "CM4" },
+      { consigne: "La kinésithérapie en France : remettez dans l'ordre.",
+        items: [ { t: "Création de l'École Française d'Orthopédie et de Massage (EFOM)", y: "1889" },
+                 { t: "Création d'un titre de Praticien Diplômé d'État", y: "1922" },
+                 { t: "Apparition officielle de la masso-kinésithérapie", y: "1946" },
+                 { t: "Mise en place de l'Ordre des masseurs-kinésithérapeutes", y: "2004" } ], src: "CM4" },
+      { consigne: "Le parcours de Trédaniel : remettez dans l'ordre.",
+        items: [ { t: "Formation à la manipulation articulaire auprès de Sambucy", y: "1952" },
+                 { t: "Formation à la chiropraxie", y: "1958" },
+                 { t: "Fondation de l'étiopathie", y: "1963" },
+                 { t: "Transformation de l'Association Ostéopathique Internationale en Institut Suisse d'Étiopathie", y: "1967" } ], src: "CM4" }
+    ],
+    etape: [
+      { consigne: "La kinésithérapie en France : remettez dans l'ordre.",
+        items: [ { t: "Création de l'EFOM (École Française d'Orthopédie et de Massage)", y: "1889" },
+                 { t: "Création d'un titre de Praticien Diplômé d'État", y: "1922" },
+                 { t: "Apparition officielle de la masso-kinésithérapie", y: "1946" },
+                 { t: "Loi créant l'Ordre des masseurs-kinésithérapeutes (non appliquée)", y: "1995" },
+                 { t: "Mise en place de l'Ordre", y: "2004" } ], src: "CM4" },
+      { consigne: "Étiopathie : remettez dans l'ordre.",
+        items: [ { t: "Trédaniel se forme auprès de Sambucy", y: "1952" },
+                 { t: "Trédaniel fonde l'étiopathie", y: "1963" },
+                 { t: "Naissance de l'Institut Suisse d'Étiopathie", y: "1967" },
+                 { t: "Le collège européen d'ostéopathie devient collège européen d'étiopathie", y: "1975" },
+                 { t: "Fermeture du collège européen d'étiopathie", y: "1981" } ], src: "CM4" },
+      { consigne: "Une longue histoire de la thérapie manuelle : remettez dans l'ordre.",
+        items: [ { t: "Hippocrate décrit des manipulations et du massage", y: "Antiquité" },
+                 { t: "Avicenne et les auteurs arabo-musulmans", y: "Moyen Âge" },
+                 { t: "Ambroise Paré, chirurgien des rois de France", y: "Renaissance" },
+                 { t: "Naissance de la chiropraxie", y: "1895" },
+                 { t: "Réunification de la masso-kinésithérapie en France", y: "1946" } ], src: "CM4" }
+    ]
+  },
+
+  /* ==================================================================
+     ZONE 4 : CONCEPT ET LÉSION (CM3 et CM5)
+     ================================================================== */
+  concept: {
+    qui: [
+      { indices: ["Je suis philosophe et médecin.",
+                  "J'ai beaucoup théorisé autour des normes et des concepts employés en médecine.",
+                  "J'ai écrit un essai sur le normal et le pathologique."],
+        reponse: "Georges Canguilhem",
+        note: "1904-1995. Il cite Claude Bernard : on ne tirerait aucune norme de l'ensemble des urines des toilettes des gares de Paris.", src: "CM3" },
+      { indices: ["Je suis chirurgien, spécialiste de la douleur.",
+                  "Pour moi, la santé, c'est le silence des organes.",
+                  "J'ai distingué la douleur-symptôme de la douleur-maladie."],
+        reponse: "René Leriche",
+        note: "Sa vision assimile état asymptomatique et état de santé. Il voit la douleur comme quelque chose à supprimer, mais défend aussi une médecine humaniste.", src: "CM3" },
+      { indices: ["Je suis psychiatre et j'ai vécu de 1913 à 1999.",
+                  "Fin des années 1970, début des années 1980, je reproche au modèle dominant en médecine d'être essentiellement biomédical.",
+                  "Je propose le modèle biopsychosocial."],
+        reponse: "George Libman Engel", src: "CM3" },
+      { indices: ["Médecin épidémiologiste américano-canadien, je suis à la fois chercheur et clinicien.",
+                  "J'ai beaucoup œuvré pour améliorer les standards des études cliniques.",
+                  "On me doit l'evidence-based medicine."],
+        reponse: "David L. Sackett", note: "1934-2015.", src: "CM3" },
+      { indices: ["Je publie sur la dysfonction somatique depuis la fin des années 1990.",
+                  "Mon dernier article de synthèse date de 2016.",
+                  "Pour moi, la dysfonction somatique est une manifestation de la nociception et de la sensibilisation centrale plus qu'une cause."],
+        reponse: "Gary Fryer", src: "CM5" },
+      { indices: ["Ostéopathe, dans les années 2010, j'interroge la manière de pratiquer des ostéopathes.",
+                  "Je me rapproche du travail d'Oliver Thomson sur le langage potentiellement nocebo.",
+                  "Je milite pour l'abandon du terme « lésion ostéopathique »."],
+        reponse: "Monica Noy", src: "CM5" },
+      { indices: ["Je suis médecin interniste.",
+                  "Je suis le fer de lance de la médecine narrative, courant créé aux États-Unis dans les années 2000.",
+                  "Je pose souvent une question ouverte et j'écoute la réponse sans interrompre le patient."],
+        reponse: "Rita Charon", src: "CM3" },
+      { indices: ["Je suis un acronyme.",
+                  "On m'emploie pour décrire la dysfonction somatique.",
+                  "Mes quatre critères : restriction de mobilité, sensibilité à la palpation, changement de texture des tissus, asymétrie."],
+        reponse: "Le critère TART", src: "CM5" }
+    ],
+    vf: [
+      { enonce: "En 1953, un comité de 8 personnes a créé The Osteopathic Concept, qui énonce quatre principes.", vrai: true,
+        explication: "Le corps est une unité, il possède des mécanismes autorégulateurs, structure et fonction sont mutuellement reliées, et une thérapie rationnelle se fonde sur ces trois éléments.", src: "CM3" },
+      { enonce: "Pour le projet POPE (1981), un principe ostéopathique est une règle ou une loi biologique, comportementale ou clinique mise en avant par les praticiens parce qu'elle illustre la philosophie ostéopathique de la santé et de la maladie.", vrai: true,
+        explication: "C'est la définition du « Project on Osteopathic Principles Education » (Sprafka et al., 1981).", src: "CM3" },
+      { enonce: "Un résultat d'examen dans la « norme » prouve que le patient est en bonne santé.", vrai: false,
+        explication: "Un examen complémentaire n'a de pertinence qu'en fonction de la question clinique de départ : un résultat normal ne dit rien de l'état de santé du patient.", src: "CM3" },
+      { enonce: "Selon Marie Eckert (2013), la globalité des ostéopathes concerne davantage le corps que la personne.", vrai: true,
+        explication: "Tester le corps dans son ensemble sans rester local ne suffit pas à être global, au risque de réduire le patient aux limites d'un corps qu'il faut corriger.", src: "CM3" },
+      { enonce: "L'approche centrée sur la personne est la plus globale : elle englobe l'approche centrée sur le patient, qui contient elle-même l'approche globale du corps.", vrai: true,
+        explication: "Le cours parle d'un « dézoom » : on replace le motif de consultation dans le parcours de vie du patient.", src: "CM3" },
+      { enonce: "L'Evidence Based Practice consiste à rejeter toute approche qui n'a pas été validée par des études.", vrai: false,
+        explication: "C'est un triptyque : meilleur niveau de preuve disponible, expertise clinique du praticien, attentes et croyances du patient.", src: "CM3" },
+      { enonce: "Entre 1966 et 2018, la France est le premier pays producteur de recherche en ostéopathie.", vrai: false,
+        explication: "56,8 % des études venaient des États-Unis, devant l'Italie, l'Espagne et le Royaume-Uni. La France n'arrive qu'en 5e position, avec 4,1 % des publications.", src: "CM3" },
+      { enonce: "La dysfonction somatique figure dans la CIM-11 sous le code ME93.0.", vrai: true,
+        explication: "On la trouve dans l'item « Segmental and somatic dysfunction », au sein de « Biomechanical lesions, not elsewhere classified ».", src: "CM5" },
+      { enonce: "Pour Gary Fryer, la dysfonction somatique est avant tout la cause des douleurs.", vrai: false,
+        explication: "Pour lui, c'est plutôt une manifestation de la nociception et de la sensibilisation centrale, ce qui n'empêche pas la manipulation d'agir sur ces mécanismes.", src: "CM5" },
+      { enonce: "En France, le terme « dysfonction somatique » est très employé.", vrai: false,
+        explication: "Il y est assez peu employé : on lui préfère le terme de dysfonction ostéopathique.", src: "CM5" },
+      { enonce: "En 2022, onze ostéopathes italiens experts ont décrit la dysfonction somatique comme un outil de communication avec le patient, un outil d'échange avec les autres professions et un élément d'identité professionnelle.", vrai: true,
+        explication: "Ce sont les trois rôles que l'étude met en évidence.", src: "CM5" },
+      { enonce: "L'article de Rogers, Korr et collègues dans le JAOA (2002) a reçu une réponse très conservatrice de R.C. Clark.", vrai: true,
+        explication: "Rogers lui répond que la médecine a elle-même évolué depuis 1953 et que la recherche impose aussi un changement de vocabulaire.", src: "CM3" }
+    ],
+    ordre: [
+      { consigne: "Le débat sur les principes : remettez dans l'ordre.",
+        items: [ { t: "Un comité de 8 personnes crée The Osteopathic Concept", y: "1953" },
+                 { t: "Le projet POPE définit ce qu'est un principe", y: "1981" },
+                 { t: "Rogers, Korr et collègues publient dans le JAOA", y: "2002" },
+                 { t: "Evans s'interroge sur la pertinence des principes", y: "2013" } ], src: "CM3" },
+      { consigne: "Modèles de raisonnement clinique : remettez dans l'ordre.",
+        items: [ { t: "Fryer publie un article de synthèse sur la dysfonction somatique", y: "2016" },
+                 { t: "Modèle Cynefin (Lunghi et al.)", y: "2019" },
+                 { t: "Osteopathic Models Integration Radar Plot (Castagna et al.)", y: "2021" },
+                 { t: "Étude des onze experts italiens sur la dysfonction somatique", y: "2022" } ], src: "CM5" },
+      { consigne: "La lésion et son vocabulaire : remettez dans l'ordre.",
+        items: [ { t: "Rumney : on passe de lésion à dysfonction somatique", y: "Années 1960" },
+                 { t: "Premières publications de Fryer sur le sujet", y: "Fin des années 1990" },
+                 { t: "Rogers, Korr et collègues publient dans le JAOA", y: "2002" },
+                 { t: "Article de synthèse de Fryer", y: "2016" } ], src: "CM3 et CM5" }
+    ],
+    etape: [
+      { consigne: "Des principes au biopsychosocial : remettez dans l'ordre.",
+        items: [ { t: "Engel propose le modèle biopsychosocial", y: "Fin des années 1970" },
+                 { t: "Rogers, Korr et collègues publient dans le JAOA", y: "2002" },
+                 { t: "Evans s'interroge sur la pertinence des principes", y: "2013" },
+                 { t: "Fryer publie un article de synthèse sur la dysfonction somatique", y: "2016" },
+                 { t: "Davis et al. : le vécu des patients par rapport aux principes", y: "2023" } ], src: "CM3 et CM5" },
+      { consigne: "De la lésion aux modèles de raisonnement : remettez dans l'ordre.",
+        items: [ { t: "Rumney : la lésion devient dysfonction somatique", y: "Années 1960" },
+                 { t: "Premières publications de Fryer sur le sujet", y: "Fin des années 1990" },
+                 { t: "Fryer publie un article de synthèse", y: "2016" },
+                 { t: "Modèle Cynefin (Lunghi et al.)", y: "2019" },
+                 { t: "Osteopathic Models Integration Radar Plot (Castagna et al.)", y: "2021" } ], src: "CM5" },
+      { consigne: "Les modèles récents : remettez dans l'ordre.",
+        items: [ { t: "Modèle Cynefin (Lunghi et al.)", y: "2019" },
+                 { t: "Osteopathic Models Integration Radar Plot (Castagna et al.)", y: "2021" },
+                 { t: "Étude des onze experts italiens sur la dysfonction somatique", y: "2022" },
+                 { t: "Davis et al. : le vécu des patients par rapport aux principes", y: "2023" },
+                 { t: "Dunn et al. : facteurs associés à la chronicité de la lombalgie", y: "2024" } ], src: "CM3 et CM5" }
+    ]
+  }
+};
+
+// Questions éclair des cases Duel (toutes zones confondues).
+const DUELS = [
+  { question: "Quelle loi française du 4 mars 2002 réserve l'usage professionnel du titre d'ostéopathe ?",
+    reponse: "La loi Kouchner (son article 75)", src: "CM2" },
+  { question: "Quel texte de 2007 précise les actes et les conditions d'exercice de l'ostéopathie ?",
+    reponse: "Le décret n° 2007-435 du 25 mars 2007", src: "CM2" },
+  { question: "Citez les deux manipulations qui exigent un diagnostic médical préalable écartant une contre-indication.",
+    reponse: "Les manipulations du crâne, de la face et du rachis chez le nourrisson de moins de six mois, et les manipulations du rachis cervical.", src: "CM2" },
+  { question: "Qui a fondé l'École Française d'Ostéopathie à Paris en 1951 ?",
+    reponse: "Paul Gény", src: "CM2" },
+  { question: "En quelle année D.D. Palmer a-t-il fondé la chiropraxie ?",
+    reponse: "1895", src: "CM4" },
+  { question: "Que recouvre le critère TART de la dysfonction somatique ?",
+    reponse: "Restriction de mobilité, sensibilité à la palpation, changement de texture des tissus, asymétrie.", src: "CM5" },
+  { question: "Qui a défini la santé comme « le silence des organes » ?",
+    reponse: "René Leriche", src: "CM3" },
+  { question: "Quels sont les trois éléments du triptyque de l'Evidence Based Practice ?",
+    reponse: "Le meilleur niveau de preuve disponible, l'expertise clinique du praticien, les attentes et croyances du patient.", src: "CM3" },
+  { question: "Quel pays nordique est présenté dans le cours comme le seul sans législation sur l'ostéopathie ?",
+    reponse: "La Suède", src: "CM2" },
+  { question: "Qui fonde l'étiopathie en 1963 ?",
+    reponse: "Christian Trédaniel", src: "CM4" }
+];
+
+// Cartes de la case Rebondissement : "delta" est le nombre de cases
+// (positif = avance, négatif = recule).
+const REBONDS = [
+  { texte: "Vent favorable : votre équipe avance de 2 cases.", delta: 2 },
+  { texte: "Citation sans contexte : reculez de 2 cases.", delta: -2 },
+  { texte: "Raccourci par la bibliothèque : avancez de 3 cases.", delta: 3 },
+  { texte: "Date confondue avec un autre pays : reculez d'1 case.", delta: -1 },
+  { texte: "Un indice providentiel : avancez d'1 case.", delta: 1 },
+  { texte: "Détour par les archives : votre équipe reste sur place.", delta: 0 },
+  { texte: "Vous reliez deux cours dans votre réponse : avancez de 3 cases.", delta: 3 },
+  { texte: "Procès pour exercice illégal : reculez de 2 cases.", delta: -2 }
+];
+
+const COULEURS = ["#B3261E", "#1B5E7B", "#6A2E8A", "#3F7D20"];
+
+/* =====================================================================
+   2. ÉTAT DE LA PARTIE (une seule variable, reconstruite à chaque partie)
+   ===================================================================== */
+let etat = null;
+let minuteur = null;   // identifiant de l'intervalle du chronomètre
+
+/* =====================================================================
+   3. PETITS OUTILS
+   ===================================================================== */
+const app = document.getElementById("app");
+const $ = (id) => document.getElementById(id);
+
+// Protège le texte saisi par l'utilisateur (noms d'équipes) avant de l'insérer en HTML.
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// Mélange de Fisher-Yates : renvoie une COPIE mélangée du tableau.
+function melanger(tab) {
+  const a = tab.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Accord simple « 1 case / 2 cases ».
+const pl = (n, mot) => `${n} ${mot}${Math.abs(n) > 1 ? "s" : ""}`;
+
+// Index (0 à 3) de la zone d'une case.
+function zoneDe(i) {
+  if (i <= 7) return 0;
+  if (i <= 14) return 1;
+  if (i <= 21) return 2;
+  return 3;
+}
+
+// Format de la question posée à une équipe qui se trouve sur la case i.
+// Au départ, on pose un « Qui suis-je ? » de la première zone.
+function typeDeCase(i) {
+  return i === 0 ? "qui" : PLATEAU[i];
+}
+
+// Position (colonne, ligne) d'une case sur le plateau en serpentin :
+// ligne 0 de gauche à droite, ligne 1 de droite à gauche, ligne 2 de gauche à droite.
+function posPlateau(i) {
+  const row = Math.floor(i / 10);
+  const col = row % 2 === 0 ? i % 10 : 9 - (i % 10);
+  return { col, row };
+}
+
+/* =====================================================================
+   4. PIOCHES
+   ---------------------------------------------------------------------
+   Une pioche par couple (type, zone). On tire sans remise : une carte déjà
+   jouée ne revient qu'une fois toutes les autres épuisées (la pioche est
+   alors remélangée).
+   ===================================================================== */
+function piocher(type, zoneId) {
+  // la source de cartes dépend du type
+  let source;
+  if (type === "duel") source = DUELS;
+  else if (type === "rebond") source = REBONDS;
+  else source = CARTES[zoneId][type];
+
+  const cle = type + ":" + (type === "duel" || type === "rebond" ? "" : zoneId);
+  if (!etat.pioches[cle] || etat.pioches[cle].length === 0) {
+    etat.pioches[cle] = melanger(source.map((_, k) => k));   // (re)mélange les index
+  }
+  return source[etat.pioches[cle].pop()];
+}
+
+/* =====================================================================
+   5. ÉCRAN D'ACCUEIL
+   ===================================================================== */
+function afficherAccueil() {
+  arreterChrono();
+  const fermer = document.getElementById("bilan");
+  if (fermer) fermer.remove();
+
+  app.innerHTML = `
+  <div class="wrap accueil">
+    <h1>Plateau d'histoire de l'ostéopathie</h1>
+    <p class="sous">Cartes tirées des polycopiés CM1 à CM5. À chaque partie, les cartes sont tirées au hasard : aucune partie ne ressemble à la précédente.</p>
+    <div class="panel" style="margin-top:14px">
+      <h2>Règles en bref</h2>
+      <ul class="regles">
+        <li>Chaque équipe pose son pion au départ. Elle répond à la carte qui correspond à la case où elle se trouve.</li>
+        <li>Plus la réponse est rapide et juste, plus l'équipe avance (de 0 à 3 cases, davantage sur une case étape).</li>
+        <li>On ne dépasse pas une case étape sans l'avoir jouée.</li>
+        <li>Une case Duel oppose deux équipes de la table ; une case Rebondissement fait avancer ou reculer.</li>
+        <li>La partie s'arrête à l'arrivée ou à l'heure dite : l'équipe la plus avancée gagne.</li>
+      </ul>
+      <div class="ligne">
+        <label>Nombre d'équipes
+          <select id="nb"><option>2</option><option selected>3</option><option>4</option></select>
+        </label>
+        <label>Durée de jeu en minutes (0 = sans chronomètre)
+          <input id="duree" type="number" min="0" max="180" value="75">
+        </label>
+      </div>
+      <div class="champs" id="champs"></div>
+      <div class="rangee"><button class="btn" data-act="lancer">Lancer la partie</button></div>
+    </div>
+  </div>`;
+
+  // Les champs de noms se régénèrent quand on change le nombre d'équipes,
+  // en conservant ce qui a déjà été saisi.
+  const noms = [];
+  const sel = $("nb");
+  function majChamps() {
+    document.querySelectorAll("#champs input").forEach((inp, k) => { noms[k] = inp.value; });
+    const n = +sel.value;
+    $("champs").innerHTML = Array.from({ length: n }, (_, k) =>
+      `<label>Équipe ${k + 1}
+         <input type="text" maxlength="30" value="${esc(noms[k] || "Équipe " + (k + 1))}">
+       </label>`).join("");
+  }
+  sel.addEventListener("change", majChamps);
+  majChamps();
+}
+
+/* =====================================================================
+   6. CONSTRUCTION DE LA PARTIE
+   ===================================================================== */
+function demarrerPartie() {
+  const noms = [...document.querySelectorAll("#champs input")]
+    .map((inp, k) => inp.value.trim() || "Équipe " + (k + 1));
+  const minutes = Math.max(0, parseInt($("duree").value, 10) || 0);
+
+  etat = {
+    equipes: noms.map((nom, k) => ({ nom, pos: 0, couleur: COULEURS[k] })),
+    courante: 0,            // index de l'équipe qui joue
+    pioches: {},            // cartes restantes (voir piocher)
+    aRevoir: [],            // cartes ratées, pour le débrief
+    cartesJouees: 0,
+    fini: false,            // vrai dès qu'une équipe atteint l'arrivée
+    finChrono: minutes > 0 ? Date.now() + minutes * 60000 : null,
+    tour: { phase: "attente" }
+  };
+
+  construirePartie();
+  majTout();
+  lancerChrono();
+}
+
+// Construit une seule fois le squelette de l'écran de jeu (plateau, légende, panneaux).
+// Les mises à jour ultérieures ne modifient que ce qui change, afin que les
+// pions puissent glisser d'une case à l'autre.
+function construirePartie() {
+  // 30 cases, positionnées en pourcentage grâce à --col et --row
+  const cases = PLATEAU.map((type, i) => {
+    const { col, row } = posPlateau(i);
+    const t = TYPES[type];
+    const zone = ZONES[zoneDe(i)];
+    const numero = (type === "depart" || type === "arrivee") ? "" : `<span class="sq-num">${i}</span>`;
+    return `<div class="sq" id="sq-${i}" style="--col:${col};--row:${row}"
+                 role="img" aria-label="Case ${i}, ${t.label}, zone ${zone.nom}">
+      <div class="sq-in" style="--fond:${t.fond};--zone:${zone.couleur}">
+        ${numero}
+        <span class="sq-sym" ${t.sym.length > 4 ? 'style="font-size:1.35cqw;top:28%"' : ""}>${t.sym}</span>
+        <span class="sq-bande"></span>
+      </div>
+    </div>`;
+  }).join("");
+
+  // un pion par équipe, avec sa « place » (--slot) fixe sur la case
+  const pions = etat.equipes.map((eq, k) =>
+    `<div class="pion" id="pion-${k}" style="--slot:${k};background:${eq.couleur}"
+          title="${esc(eq.nom)}">${k + 1}</div>`).join("");
+
+  // légende : formats de case + zones
+  const legTypes = ["qui", "ordre", "vf", "etape", "duel", "rebond"].map((k) =>
+    `<span class="leg"><i style="--fond:${TYPES[k].fond}">${TYPES[k].sym}</i>${TYPES[k].label}</span>`).join("");
+  const legZones = ZONES.map((z) =>
+    `<span class="leg"><b style="--zone:${z.couleur}"></b>${z.nom} (cases ${z.de} à ${z.a})</span>`).join("");
+
+  app.innerHTML = `
+  <div class="wrap">
+    <header class="bar">
+      <div>
+        <h1>Plateau d'histoire de l'ostéopathie</h1>
+        <p class="sous">Cartes des polycopiés CM2 à CM5</p>
+      </div>
+      <div class="bar-droite">
+        <span id="chrono" class="chrono"></span>
+        <button class="btn sec" data-act="bilan">Terminer la partie</button>
+      </div>
+    </header>
+    <div class="defile"><div class="plateau" id="plateau">${cases}${pions}</div></div>
+    <div class="legende">${legTypes}${legZones}</div>
+    <div class="bas">
+      <section class="panel" id="tour" aria-live="polite"></section>
+      <aside class="panel" id="equipes"></aside>
+    </div>
+  </div>`;
+}
+
+function majTout() {
+  majPions();
+  majEquipes();
+  majTour();
+}
+
+/* =====================================================================
+   7. MISES À JOUR DE L'AFFICHAGE
+   ===================================================================== */
+
+// Place chaque pion sur sa case en changeant seulement --col et --row :
+// la transition CSS fait glisser le pion.
+function majPions() {
+  etat.equipes.forEach((eq, k) => {
+    const { col, row } = posPlateau(eq.pos);
+    const p = $("pion-" + k);
+    p.style.setProperty("--col", col);
+    p.style.setProperty("--row", row);
+    p.classList.toggle("courant", k === etat.courante);
+  });
+  // la case de l'équipe courante est entourée
+  document.querySelectorAll(".sq.actif").forEach((s) => s.classList.remove("actif"));
+  $("sq-" + etat.equipes[etat.courante].pos).classList.add("actif");
+}
+
+// Liste des équipes avec leur avancement.
+function majEquipes() {
+  $("equipes").innerHTML = "<h2>Équipes</h2>" +
+    etat.equipes.map((eq, k) => `
+      <div class="equipe ${k === etat.courante ? "courante" : ""}" style="--equipe:${eq.couleur}">
+        <span class="badge" style="background:${eq.couleur}">${k + 1}</span>
+        <div><div class="nom">${esc(eq.nom)}</div>
+             <div class="case">Case ${eq.pos} sur ${ARRIVEE}</div></div>
+        <div class="progres"><span style="width:${(eq.pos / ARRIVEE) * 100}%"></span></div>
+      </div>`).join("") +
+    `<p class="stats">Cartes jouées : ${etat.cartesJouees}</p>`;
+}
+
+// Panneau central : change selon la phase du tour (attente, carte, résultat).
+function majTour() {
+  const t = etat.tour;
+  const eq = etat.equipes[etat.courante];
+  const type = typeDeCase(eq.pos);
+  const zone = ZONES[zoneDe(eq.pos)];
+  const badge = `<span class="badge" style="background:${eq.couleur}">${etat.courante + 1}</span>`;
+
+  let html;
+  if (t.phase === "attente") {
+    html = `<div class="tour-tete">${badge}<div><h2>Au tour de ${esc(eq.nom)}</h2>
+      <div class="puces"><span class="puce">Case ${eq.pos}</span><span class="puce">${zone.nom}</span>
+      <span class="puce">${TYPES[type].label}</span></div></div></div>
+      <p class="aide">Lisez la carte à voix haute, l'équipe répond, puis on valide ici.</p>
+      <div class="rangee"><button class="btn" data-act="tirer">Tirer une carte</button></div>`;
+  } else if (t.phase === "carte") {
+    html = `<div class="tour-tete">${badge}<div><h2>${esc(eq.nom)}</h2>
+      <div class="puces"><span class="puce">Case ${eq.pos}</span><span class="puce">${t.zone.nom}</span>
+      <span class="puce">${TYPES[t.type].label}</span></div></div></div>` + htmlCarte(t);
+  } else {
+    html = `<div class="tour-tete">${badge}<h2>Résultat</h2></div>
+      <p class="resultat">${esc(t.texte)}</p>
+      <div class="rangee"><button class="btn" data-act="${etat.fini ? "bilan" : "suivant"}">
+        ${etat.fini ? "Voir le bilan" : "Équipe suivante"}</button></div>`;
+  }
+  $("tour").innerHTML = html;
+}
+
+/* =====================================================================
+   8. CONTENU DES CARTES (un bloc HTML par format)
+   ===================================================================== */
+// Ligne « Source » affichée au verso d'une carte (cours d'origine),
+// pour que l'enseignant retrouve le passage du polycopié.
+function htmlSrc(c) {
+  return c.src ? `<div class="note">Source : ${esc(c.src)}</div>` : "";
+}
+
+function htmlCarte(t) {
+  if (t.type === "qui") return htmlQui(t);
+  if (t.type === "vf") return htmlVF(t);
+  if (t.type === "ordre" || t.type === "etape") return htmlOrdre(t);
+  if (t.type === "duel") return htmlDuel(t);
+  return htmlRebond(t);
+}
+
+// Qui suis-je ? : les indices se dévoilent un par un.
+function htmlQui(t) {
+  const c = t.data, n = t.indicesVus;
+  let h = `<p class="consigne">Qui suis-je ? Indice${n > 1 ? "s" : ""} dévoilé${n > 1 ? "s" : ""} : ${n} sur ${c.indices.length}</p>
+    <ol class="indices">${c.indices.slice(0, n).map((x) => `<li>${esc(x)}</li>`).join("")}</ol>`;
+  if (!t.vue) {
+    h += `<div class="rangee">
+      ${n < c.indices.length ? `<button class="btn sec" data-act="indice">Indice suivant</button>` : ""}
+      <button class="btn" data-act="voir">Voir la réponse</button></div>`;
+  } else {
+    h += `<div class="reponse">Réponse : <strong>${esc(c.reponse)}</strong>
+      ${c.note ? `<div class="note">${esc(c.note)}</div>` : ""}${htmlSrc(c)}</div>
+      <div class="rangee">
+        <button class="btn" data-act="qui" data-arg="trouve">Trouvé avec ${pl(n, "indice")} (+${GAINS.qui[n - 1]})</button>
+        <button class="btn sec" data-act="qui" data-arg="rate">Pas trouvé (0)</button></div>`;
+  }
+  return h;
+}
+
+// Vrai ou faux : la justification compte.
+function htmlVF(t) {
+  const c = t.data;
+  let h = `<p class="consigne">Vrai ou faux ? L'équipe répond et justifie.</p>
+    <p class="enonce">« ${esc(c.enonce)} »</p>`;
+  if (!t.vue) {
+    h += `<div class="rangee"><button class="btn" data-act="voir">Voir la réponse</button></div>`;
+  } else {
+    h += `<div class="reponse"><strong>${c.vrai ? "Vrai" : "Faux"}.</strong> ${esc(c.explication)}${htmlSrc(c)}</div>
+      <div class="rangee">
+        <button class="btn" data-act="vf" data-arg="juste">Bonne réponse et bon argument (+${GAINS.vf.juste})</button>
+        <button class="btn sec" data-act="vf" data-arg="justeSansArgument">Bonne réponse sans argument (+${GAINS.vf.justeSansArgument})</button>
+        <button class="btn sec" data-act="vf" data-arg="faux">Mauvaise réponse (0)</button></div>`;
+  }
+  return h;
+}
+
+// Remettez dans l'ordre (et case étape, qui utilise le même format avec 5 événements).
+function htmlOrdre(t) {
+  const c = t.data;
+  const g = GAINS[t.type];
+  let h = `<p class="consigne">${esc(c.consigne || "Remettez ces événements dans l'ordre chronologique.")}</p>
+    <ol class="items">${t.melange.map((k) => `<li>${esc(c.items[k].t)}</li>`).join("")}</ol>`;
+  if (!t.vue) {
+    h += `<div class="rangee"><button class="btn" data-act="voir">Voir l'ordre exact</button></div>`;
+  } else {
+    h += `<div class="reponse"><strong>Ordre exact</strong>
+      <ol class="ordre-exact">${c.items.map((it) => `<li><strong>${esc(it.y)}</strong> : ${esc(it.t)}</li>`).join("")}</ol>${htmlSrc(c)}</div>
+      <div class="rangee">
+        <button class="btn" data-act="ordre" data-arg="exact">Ordre exact (+${g.exact})</button>
+        <button class="btn sec" data-act="ordre" data-arg="inversion">Une inversion (+${g.inversion})</button>
+        <button class="btn sec" data-act="ordre" data-arg="partiel">Partiellement juste (+${g.partiel})</button>
+        <button class="btn sec" data-act="ordre" data-arg="rate">Raté (+${g.rate})</button></div>`;
+  }
+  return h;
+}
+
+// Duel : on choisit d'abord l'adversaire, puis on désigne le vainqueur.
+function htmlDuel(t) {
+  const actif = etat.courante;
+  if (t.adversaire === null) {
+    return `<p class="consigne">Duel : choisissez l'équipe adverse. La plus rapide et exacte gagne ${pl(GAINS.duel, "case")}.</p>
+      <div class="rangee">${etat.equipes.map((eq, k) => k === actif ? "" :
+        `<button class="btn sec" data-act="adversaire" data-arg="${k}">Défier ${esc(eq.nom)}</button>`).join("")}</div>`;
+  }
+  const adv = etat.equipes[t.adversaire];
+  let h = `<p class="consigne">${esc(etat.equipes[actif].nom)} contre ${esc(adv.nom)}</p>
+    <p class="enonce">${esc(t.data.question)}</p>`;
+  if (!t.vue) {
+    h += `<div class="rangee"><button class="btn" data-act="voir">Voir la réponse</button></div>`;
+  } else {
+    h += `<div class="reponse">Réponse : <strong>${esc(t.data.reponse)}</strong>${htmlSrc(t.data)}</div>
+      <div class="rangee">
+        <button class="btn" data-act="gagnant" data-arg="${actif}">Point pour ${esc(etat.equipes[actif].nom)}</button>
+        <button class="btn" data-act="gagnant" data-arg="${t.adversaire}">Point pour ${esc(adv.nom)}</button>
+        <button class="btn sec" data-act="gagnant" data-arg="aucun">Personne</button></div>`;
+  }
+  return h;
+}
+
+// Rebondissement : on lit la carte puis on l'applique.
+function htmlRebond(t) {
+  return `<p class="enonce">${esc(t.data.texte)}</p>
+    <div class="rangee"><button class="btn" data-act="rebond">Appliquer</button></div>`;
+}
+
+/* =====================================================================
+   9. DÉROULEMENT D'UN TOUR
+   ===================================================================== */
+
+// Tire la carte qui correspond à la case de l'équipe courante.
+function tirerCarte() {
+  const eq = etat.equipes[etat.courante];
+  const type = typeDeCase(eq.pos);
+  const zone = ZONES[zoneDe(eq.pos)];
+  const t = { phase: "carte", type, zone, data: piocher(type, zone.id),
+              indicesVus: 1, vue: false, adversaire: null };
+  // pour les formats « ordre », on mélange les événements (jamais dans le bon ordre)
+  if (type === "ordre" || type === "etape") {
+    const n = t.data.items.length;
+    let m;
+    do { m = melanger([...Array(n).keys()]); } while (m.every((v, i) => v === i));
+    t.melange = m;
+  }
+  etat.cartesJouees++;
+  etat.tour = t;
+  majTour();
+}
+
+// Déplace une équipe et renvoie la phrase qui décrit le déplacement.
+// Règle : en avançant, on s'arrête sur la première case étape rencontrée.
+function deplacer(eq, delta) {
+  const avant = eq.pos;
+  let apres = avant;
+  let bloque = false;
+  if (delta > 0) {
+    for (let k = 1; k <= delta; k++) {
+      apres = avant + k;
+      if (apres >= ARRIVEE) { apres = ARRIVEE; break; }
+      if (PLATEAU[apres] === "etape") { bloque = k < delta; break; }
+    }
+  } else if (delta < 0) {
+    apres = Math.max(0, avant + delta);
+  }
+  eq.pos = apres;
+  const reel = apres - avant;
+
+  if (reel === 0) return `${eq.nom} reste sur la case ${avant}.`;
+  if (reel > 0) {
+    let s = `${eq.nom} avance de ${pl(reel, "case")} (case ${apres}).`;
+    if (bloque) s += " Une case étape ne se dépasse qu'après l'avoir jouée.";
+    if (apres === ARRIVEE) s += " Arrivée atteinte !";
+    return s;
+  }
+  return `${eq.nom} recule de ${pl(-reel, "case")} (case ${apres}).`;
+}
+
+// Termine le tour : applique les déplacements, note la carte à revoir si besoin,
+// et passe à la phase « résultat ».
+function conclure(deplacements, introduction, aRevoir) {
+  const phrases = [introduction];
+  deplacements.forEach((d) => phrases.push(deplacer(d.equipe, d.delta)));
+  if (aRevoir) {
+    const deja = etat.aRevoir.some((x) => x.titre === aRevoir.titre);
+    if (!deja) etat.aRevoir.push(aRevoir);
+  }
+  if (etat.equipes.some((e) => e.pos >= ARRIVEE)) etat.fini = true;
+  etat.tour = { phase: "resultat", texte: phrases.filter(Boolean).join(" ") };
+  majTout();
+}
+
+// Passe à l'équipe suivante.
+function equipeSuivante() {
+  etat.courante = (etat.courante + 1) % etat.equipes.length;
+  etat.tour = { phase: "attente" };
+  majTout();
+}
+
+// Point d'entrée unique de tous les clics (boutons avec data-act et data-arg).
+function agir(act, arg) {
+  const t = etat && etat.tour;
+  const eq = etat && etat.equipes[etat.courante];
+
+  switch (act) {
+    case "lancer":    demarrerPartie(); break;
+    case "tirer":     tirerCarte(); break;
+    case "indice":    t.indicesVus++; majTour(); break;
+    case "voir":      t.vue = true; majTour(); break;
+    case "suivant":   equipeSuivante(); break;
+    case "bilan":     ouvrirBilan(); break;
+    case "reprendre": document.getElementById("bilan").remove(); break;
+    case "nouvelle":  afficherAccueil(); break;
+
+    // Qui suis-je ? : gain selon le nombre d'indices utilisés
+    case "qui": {
+      const c = t.data;
+      if (arg === "trouve") {
+        conclure([{ equipe: eq, delta: GAINS.qui[t.indicesVus - 1] }],
+                 `${eq.nom} a trouvé avec ${pl(t.indicesVus, "indice")}.`);
+      } else {
+        conclure([{ equipe: eq, delta: 0 }], `Pas trouvé : c'était ${c.reponse}.`,
+                 { zone: t.zone.nom, titre: "Qui suis-je ? " + c.reponse, reponse: c.reponse });
+      }
+      break;
+    }
+    // Vrai ou faux
+    case "vf": {
+      const c = t.data;
+      const miss = arg === "faux" || arg === "justeSansArgument";
+      conclure([{ equipe: eq, delta: GAINS.vf[arg] }], "",
+               miss ? { zone: t.zone.nom, titre: c.enonce,
+                        reponse: (c.vrai ? "Vrai. " : "Faux. ") + c.explication } : null);
+      break;
+    }
+    // Ordre et étape
+    case "ordre": {
+      const c = t.data;
+      const miss = arg === "partiel" || arg === "rate";
+      conclure([{ equipe: eq, delta: GAINS[t.type][arg] }], "",
+               miss ? { zone: t.zone.nom, titre: (c.consigne || "Remettre dans l'ordre") + " : " + c.items[0].t + "...",
+                        reponse: c.items.map((it) => it.y + " " + it.t).join(" ; ") } : null);
+      break;
+    }
+    // Duel : choix de l'adversaire puis du vainqueur
+    case "adversaire": t.adversaire = +arg; majTour(); break;
+    case "gagnant": {
+      if (arg === "aucun") {
+        conclure([], "Personne n'a trouvé : le duel ne rapporte rien.");
+      } else {
+        const gagnant = etat.equipes[+arg];
+        conclure([{ equipe: gagnant, delta: GAINS.duel }], `${gagnant.nom} remporte le duel.`);
+      }
+      break;
+    }
+    // Rebondissement
+    case "rebond":
+      conclure([{ equipe: eq, delta: t.data.delta }], "");
+      break;
+  }
+}
+
+/* =====================================================================
+   10. CHRONOMÈTRE
+   ===================================================================== */
+function lancerChrono() {
+  arreterChrono();
+  majChrono();
+  minuteur = setInterval(majChrono, 1000);
+}
+function arreterChrono() {
+  if (minuteur) { clearInterval(minuteur); minuteur = null; }
+}
+function majChrono() {
+  const el = $("chrono");
+  if (!el || !etat) return;
+  if (!etat.finChrono) { el.textContent = ""; return; }
+  const reste = Math.max(0, Math.round((etat.finChrono - Date.now()) / 1000));
+  if (reste === 0) {
+    el.textContent = "Temps écoulé : terminez le tour";
+    el.classList.add("fini");
+  } else {
+    const m = String(Math.floor(reste / 60)).padStart(2, "0");
+    const s = String(reste % 60).padStart(2, "0");
+    el.textContent = `Temps restant ${m}:${s}`;
+  }
+}
+
+/* =====================================================================
+   11. BILAN DE FIN DE PARTIE
+   ---------------------------------------------------------------------
+   Classement, puis liste des cartes ratées : c'est la matière du débrief
+   à rejouer collectivement.
+   ===================================================================== */
+function ouvrirBilan() {
+  if (document.getElementById("bilan")) return;
+  const classement = etat.equipes.slice().sort((a, b) => b.pos - a.pos);
+  const ex = classement.length > 1 && classement[0].pos === classement[1].pos;
+
+  const revoir = etat.aRevoir.length
+    ? `<h2 style="margin-top:16px">Cartes à revoir en débrief</h2>
+       <ul class="revoir">${etat.aRevoir.map((x) =>
+         `<li><strong>${esc(x.zone)}</strong> : ${esc(x.titre)}<div class="note">${esc(x.reponse)}</div></li>`).join("")}</ul>`
+    : `<p class="note" style="margin-top:12px">Aucune carte ratée pour l'instant.</p>`;
+
+  const div = document.createElement("div");
+  div.className = "voile";
+  div.id = "bilan";
+  div.innerHTML = `<div class="panel bilan">
+    <h1>Bilan de la partie</h1>
+    <p class="sous">${ex ? "Égalité en tête : à départager en débrief." : esc(classement[0].nom) + " est en tête."}</p>
+    <ol class="rang">${classement.map((e) => `<li><strong>${esc(e.nom)}</strong>, case ${e.pos} sur ${ARRIVEE}</li>`).join("")}</ol>
+    ${revoir}
+    <div class="rangee">
+      <button class="btn sec" data-act="reprendre">Reprendre la partie</button>
+      <button class="btn" data-act="nouvelle">Nouvelle partie</button>
+    </div></div>`;
+  document.body.appendChild(div);
+}
+
+/* =====================================================================
+   12. DÉMARRAGE
+   ===================================================================== */
+// Un seul écouteur pour tous les boutons de la page (délégation d'événements).
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-act]");
+  if (b) agir(b.dataset.act, b.dataset.arg);
+});
+afficherAccueil();
+</script>
+</body>
+</html>
